@@ -1,0 +1,10 @@
+# Python / 가상환경
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE / OS 임시 파일
+.vscode/
+.DS_Store
+*.log
