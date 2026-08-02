@@ -1,73 +1,121 @@
-# Repository Guidelines
+# 프로젝트 지침서 (`Agent.md`)
 
-## 프로젝트 구조
+## 1. 프로젝트 개요 및 구조 (Project Structure)
 
-- `backend/`: Laravel 12 + PostgreSQL을 사용하는 API. Artisan 명령과 마이그레이션은 `backend/src`에서 실행한다.
-- `web/`: React 18 + Vite 기반 CMS 프런트엔드. 운영에서는 `https://cms.tomato-pouch.kro.kr` 도메인으로 분리해 서빙한다.
-- `mobile-web-next/`: Next.js 기반 사용자 모바일/웹 프런트엔드. 운영에서는 경로 prefix 없이 루트 사용자 도메인 `https://tomato-pouch.kro.kr`에서 서빙한다.
+> 💡 **안내**: 프로젝트가 결정되면 아래 빈칸 및 예시 항목을 해당 프로젝트의 실제 환경에 맞게 채워주세요.
 
-- `app/`: Flutter 기반 네이티브 앱 프런트엔드. 공용 Flutter 코드(`app/lib`)와 자산을 공유하며, `app/android`는 네이티브 앱 코드, `app/web`은 Flutter 웹 빌드 자산을 담는다.
-- `docker-compose.yml`: 개발용 Postgres, Redis 중심 compose. 현재 개발은 백엔드/CMS/사용자 웹을 호스트에서 직접 실행하고 DB/Redis만 Docker로 띄우는 방식을 기본으로 한다.
-- `docker-compose.prod.yml`: 운영 준비용 compose. Laravel PHP-FPM API, queue worker, nginx, 사용자 웹, CMS, certbot, Postgres, Redis를 분리한다.
-- 기타 문서는 `docs/`, 디자인 자료는 `design/` 아래에 있으며 추가 앱(workspace)은 없다.
+* **프로젝트명**: `[예: 토마토 파우치 웹/앱 서비스]`
+* **주요 디렉터리 구성**:
+  * `backend/`: `[예: 백엔드 API 서비스 (Node.js/Python/Java 등)]`
+  * `frontend/` 또는 `web/`: `[예: 사용자 웹/관리자 웹 프론트엔드 (React/Vue/Next.js 등)]`
+  * `mobile/` 또는 `app/`: `[예: 모바일 앱 프론트엔드 (Flutter/React Native 등)]`
+  * `docs/`: `[예: 프로젝트 관련 기획서, API 명세, 설계 문서]`
+* **실행 및 인프라 환경**:
+  * **개발 환경**: `[예: 로컬 호스트 직접 실행 또는 docker compose up 기반 기동]`
+  * **운영 환경**: `[예: Docker 기반 분리 기동 또는 클라우드 배포 시스템 활용]`
+  * **운영 도메인**:
+    * 사용자 서비스: `[예: https://example.com]`
+    * 관리자 서비스: `[예: https://admin.example.com]`
 
-## 빌드·실행 방법
+---
 
-- **Backend 개발**: `cd backend/src && composer install && php artisan serve --host=127.0.0.1 --port=8003`. 마이그레이션/테스트는 `php artisan migrate`, `php artisan test`를 사용한다.
-- **CMS 개발**: `cd web && npm install && npm run dev`.
-- **사용자 웹 개발**: `cd mobile-web-next && npm install && npm run dev`.
-- **개발 DB/Redis**: 프로젝트 루트에서 `docker compose up -d postgres redis`; 종료는 `docker compose down`.
-- **운영 배포 준비**: `docker-compose.prod.yml`을 기준으로 빌드/기동한다. 운영 마이그레이션은 자동 실행하지 않고 `docker compose -f docker-compose.prod.yml run --rm backend php artisan migrate --pretend` 확인 후 `docker compose -f docker-compose.prod.yml run --rm backend php artisan migrate --force`로 실행한다.
-- 캐시·큐 등 Laravel 운영 명령은 `docker compose -f docker-compose.prod.yml run --rm backend php artisan <command>`를 우선 사용한다.
+## 2. 커밋 및 배포 규칙 (Git & Deployment)
 
-## 스타일 가이드
+### 2.1. 커밋 메시지 규격 (Conventional Commits)
+* 커밋 메시지는 `type(scope): subject` 형식을 엄격히 준수한다.
+* **Type**:
+  * `feat`: 새로운 기능 추가
+  * `fix`: 버그 수정
+  * `docs`: 문서 수정
+  * `refactor`: 코드 구조 개선 (기능/동작 변경 없음)
+  * `style`: 코드 포맷팅, 세미콜론 누락 등 (동작 영향 없음)
+  * `test`: 테스트 코드 추가 및 수정
+  * `chore`: 빌드 업무, 패키지 매니저 설정, 잡무
+  * `perf`: 성능 향상
+* **Scope**: 변경된 주요 영역/모듈명을 소문자로 작성한다. (예: `backend`, `frontend`, `cms`, `app`, `infra`, `docs` 등)
+* **Subject**:
+  * 한국어로 간결하고 명확하게 작성한다.
+  * 문장 끝에 마침표(`.`)를 붙이지 않는다.
+  * 예시: `feat(frontend): 로그인 버튼 디자인 수정`
 
-- PHP는 Laravel 기본(PSR-12) 규칙을 따른다. 컨트롤러·모델은 `StudlyCase`, 메서드·변수는 `camelCase`.
-- **백엔드 데이터 조회 규칙**: N+1 문제와 과도한 관계 로딩/조인을 방지하기 위해, 목록·상세·집계 API와 배치성 작업의 DB 조회는 Eloquent 관계 로딩보다 Query Builder(`DB::table()` 또는 `Model::query()`의 명시적 select/join/subquery)를 우선 사용한다. Eloquent 모델은 단순 단건 생성·수정이나 도메인 상수/캐스팅 활용이 명확한 경우에만 제한적으로 사용하고, 관계 접근으로 암묵적 추가 쿼리가 발생하지 않도록 한다.
-- React 코드는 함수 컴포넌트와 훅 중심으로 작성하며 ESLint + Prettier 기본 설정을 따른다.
-- 환경 변수 템플릿은 `backend/src/.env.example`, `web/.env.example`에 업데이트하고 버전에 맞춘다.
-- **DB 마이그레이션 규칙**: 테이블을 생성하거나 컬럼을 생성·수정할 때는 해당 테이블/컬럼의 의미를 설명하는 한국어 `comment`를 반드시 추가한다. 외래 키 컬럼은 `사용자 ID(users.id)`처럼 원본 테이블과 키 컬럼을 괄호로 함께 적는다. 상태값/타입값 컬럼은 `0:비활성, 1:활성`, `출처 타입(인플루언서, 검색)`처럼 가능한 값의 의미를 한국어로 함께 적는다.
+### 2.2. 커밋 실행 안전 규칙 (AI 에이전트 필수 준수)
+* **명시적 파일 추가**: `git add .`과 같은 일괄 스테이징은 절대 금지한다. 에이전트가 이번 작업에서 실제로 만들거나 수정한 파일만 명시적으로 지정하여 추가한다. (예: `git add src/user.js docs/api.md`)
+* **기존 변경 사항 보호**: 에이전트 작업 이전부터 이미 존재하던 미커밋(Uncommitted) 변경 파일은 커밋 대상에 절대 포함하지 않는다.
+* **승인 프롬프트 기반 커밋**:
+  * 작업이 완료되면 대화창으로 "커밋할까요? (예/아니오)"라고 묻지 않는다.
+  * 변경 요약과 함께 추천 커밋 메시지를 제시한 뒤, **실제 커밋 명령(`git add ... && git commit -m "..."`)을 실행하여 시스템 승인 팝업(Prompt)이 뜨도록 유도**한다.
+  * 사용자가 승인 팝업에서 승인한 경우에만 커밋을 진행하며, 거절된 경우 커밋을 진행하지 않고 지시를 기다린다.
 
-## API 설계 가이드
+### 2.3. 배포 및 운영 안정성 지침
+* **배포 전 사전 점검**:
+  * 배포 전 실행 가능한 테스트(`npm test`, `pytest`, `php artisan test` 등)나 빌드 검사(`npm run build` 등)를 먼저 수행하여 에러가 없는지 검증한다.
+  * 데이터베이스 마이그레이션(DB 변경)이 포함된 경우, 실제 적용 전에 변경 예정 내역을 드라이런(Dry-run)이나 검증 명령으로 먼저 확인한다.
+* **배포 순서 준수**:
+  * 일반적인 배포 절차: `최신 코드 동기화(git pull) -> 데이터베이스 마이그레이션 -> 앱 빌드 -> 서비스 재시작` 순서를 준수하여 서비스 중단을 최소화한다.
 
-- 앱 사용자 기능은 `/api/app/*` 계열의 앱 전용 API 스타일을 따른다. CMS 관리자 기능은 `/api/*` 계열의 관리용 API 스타일을 따르며, 두 스타일을 섞지 않는다.
-- 앱 API는 화면 중심으로 필요한 데이터만 가공해서 내려주는 응답을 우선한다. 프런트가 조합해야 하는 범용 CRUD 응답보다, 앱 화면에서 바로 사용할 수 있는 payload를 선호한다.
-- 앱 API의 목록 응답은 기본적으로 `{ data, meta: { page, perPage, hasMore } }` 형태를 따른다. 모바일 무한 스크롤/더보기 UI를 기준으로 설계하고, CMS에서 쓰는 paginator 메타 구조를 그대로 복제하지 않는다.
-- CMS API의 목록 응답은 관리자 화면에 맞는 Laravel paginator/관리형 리스트 메타 구조를 유지한다. 총 개수, 현재 페이지, 정렬/필터 관리가 필요한 CMS 요구사항을 우선한다.
-- 앱 API에서는 사용자 맥락을 설명하는 메타데이터(`source_type`, `source_id`, `source_influencer` 등)를 응답에 포함할 수 있다. 단, 단일 화면 요구사항을 해결하기 위한 목적이 분명할 때만 추가한다.
-- 새로운 API를 만들 때 먼저 이 기능이 앱용인지 CMS용인지 구분하고, 기존 유사 API의 경로, 인증 미들웨어, 응답 형태, 페이지네이션 방식을 그대로 맞춘다.
+### 2.4. 보안 및 설정 관리 (Security & Environment)
+* **환경 변수 분리**: 개발(Development)과 운영(Production) 환경의 설정값(DB 접속 정보, Domain, API Key 등)은 절대 혼용하지 않고 엄격히 분리하여 관리한다.
+* **민감 정보 보호**: 비밀번호, JWT/OAuth 시크릿, API Private Key 등 민감한 정보는 소스코드에 hard-coding하거나 Git에 올려 커밋하지 않는다.
+* **환경 변수 템플릿 제공**: 새로운 환경 변수가 추가되면 실제 비밀값은 제외한 템플릿 파일(예: `.env.example`)을 반드시 업데이트하여 다른 개발자나 환경에서 참고할 수 있게 한다.
+* **인프라 및 네트워크 보안**: 운영 서버 구축 시 외부 노출이 불필요한 데이터베이스/인메모리 DB 포트는 방화벽으로 차단하고, 웹 서비스는 반드시 TLS/SSL(HTTPS)을 적용한다.
 
-## 테스트 가이드
+---
 
-- 현재 자동화 테스트가 적으므로 중요 기능 추가 시 `php artisan test` 기반의 Feature/Unit 테스트를 작성한다.
-- 프런트엔드는 Vitest/RTL 기반 테스트를 `web/src/**/*.test.tsx`로 추가한다.
-- Docker 운영 이미지를 새로 빌드할 때 최소한 `docker compose -f docker-compose.prod.yml run --rm backend php artisan migrate --pretend`로 마이그레이션 확인을 권장한다.
+## 3. 빌드 및 실행 지침 (Build & Execution)
 
-## 커밋·배포
+* **환경별 실행 명령 준수**:
+  * 개발(Development) 및 운영(Production) 환경에 따른 공식 서버 실행, 패키지 설치, 빌드 명령어를 문서(README 또는 프로젝트 지침)에 명시된 대로만 실행한다.
+* **개발용 데이터베이스/가상 환경 관리**:
+  * Docker 등 가상화 환경을 사용하는 경우, DB 및 인메모리 캐시(Redis 등) 컨테이너 기동/종료 명령을 명확히 구분하여 수행한다.
+* **운영 환경 마이그레이션 안전성**:
+  * 운영(Production) 데이터베이스 마이그레이션은 절대 자동 실행하지 않으며, 반드시 드라이런(Dry-run) 명령으로 사전 확인 후 사용자의 명시적 승인을 받아 실행한다.
+* **서버 캐시 및 작업 큐 관리**:
+  * 설정 변경이나 배포 작업 후 필요 시 캐시 초기화 및 작업 큐(Queue) 재시작 명령을 표준 절차에 맞춰 수행한다.
 
-- 커밋 메시지는 Conventional Commit 형식을 따른다: `type(scope): subject`.
-- `type`은 `feat`(기능), `fix`(버그 수정), `docs`(문서), `refactor`(동작 변경 없는 구조 개선), `style`(포맷/스타일), `test`(테스트), `chore`(빌드·설정·잡무), `perf`(성능), `ci`(CI/CD) 중에서 선택한다.
-- `scope`는 가능하면 변경 영역을 짧게 적는다: `backend`, `cms`, `app`, `mobile-web`, `infra`, `docs` 등.
-- `subject`는 한글로 간결하게 작성하고 마침표를 붙이지 않는다. 예: `fix(mobile-web): 상품 상세 이미지 비율 보정`.
-- 작업이 끝나면 에이전트는 변경 요약과 적절한 커밋 메시지를 제안한 뒤, 채팅으로 `예/아니오`를 묻지 않고 실제 `git add ... && git commit -m "..."` 명령을 실행해 승인 프롬프트가 뜨게 한다.
-- 사용자가 승인 프롬프트에서 허용한 경우에만 커밋한다. 거부한 경우에는 커밋하지 않고 종료하거나 다음 지시를 기다린다.
-- 커밋할 때는 에이전트가 이번 작업에서 만든/수정한 파일만 명시적으로 `git add`하고, 기존 미커밋 변경은 포함하지 않는다.
-- 운영 전환/배포 기준은 `docs/deployment/26.05.12_런칭전_운영배포전환.md`를 우선 확인한다.
-- 운영 도메인 구조: 사용자 웹 `https://tomato-pouch.kro.kr`, CMS `https://cms.tomato-pouch.kro.kr`, API `https://api.tomato-pouch.kro.kr/api`.
-- 운영 배포 전 순서: `git pull` → `docker compose -f docker-compose.prod.yml build backend nginx mobile_web` → `docker compose -f docker-compose.prod.yml up -d backend nginx mobile_web queue_default queue_subtitle` → `docker compose -f docker-compose.prod.yml run --rm backend php artisan migrate --pretend` → 필요 시 `docker compose -f docker-compose.prod.yml run --rm backend php artisan migrate --force`.
+---
 
-## 보안/설정
+## 4. 스타일 가이드 (Style Guide)
 
-- 개발 백엔드는 `backend/src/.env`, 운영 백엔드는 루트 `.env.backend.prod`를 사용한다. 운영 값을 개발 `.env`에 섞지 않는다.
-- `.env`, `.env.backend.prod`에는 실제 비밀번호와 JWT 시크릿을 넣고 Git에 올리지 않는다.
-- Postgres/Redis 외부 포트는 필요 시 방화벽으로 제한하고, TLS(HTTPS)는 nginx/certbot으로 적용한다.
+* **코드 표준 및 포맷팅 준수**:
+  * 언어 및 프레임워크별 기본 코딩 컨벤션(Linter/Formatter 규칙)과 명명 규칙(클래스: `StudlyCase`, 메서드/변수: `camelCase` 등)을 엄격히 준수한다.
+* **데이터 조회 및 성능 최적화 (N+1 문제 방지)**:
+  * N+1 문제와 과도한 조인을 방지하기 위해, 목록·상세·집계 API 및 대량 작업에서는 무분별한 ORM 관계 로딩보다 명시적인 Select/Join/Subquery 조회를 우선 사용한다.
+  * ORM 모델은 단순 단건 생성·수정이나 캐스팅 활용 시에 제한적으로 사용하여, 암묵적 추가 쿼리가 발생하지 않도록 한다.
+* **DB 마이그레이션 주석(Comment) 필수화**:
+  * 테이블 생성/수정 시 테이블 및 컬럼의 의미를 설명하는 한국어 주석(`comment`)을 반드시 작성한다.
+  * 외래키(FK) 컬럼: 원본 테이블과 키 컬럼을 함께 적는다. (예: `사용자 ID(users.id)`)
+  * 상태/타입 컬럼: 가능한 모든 값의 의미를 적는다. (예: `0:비활성, 1:활성`, `출처 타입(인플루언서, 검색)`)
 
-## Communication
+---
 
-- 모든 에이전트와 도구의 응답은 반드시 한국어로 작성한다.
-- 사용자가 “내가 이해되냐고 물어보면 분석과 대답만 하고, 코드 작업 등 다른 행동은 하지 말 것”이라고 요청한 경우 이 규칙을 우선 적용한다.
-- 사용자가 “앱에서~”라고 하면 `mobile-web-next`를 살핀다. “모바일웹에서~”라고 해도 `mobile-web-next`를 우선 확인한다. “cms에서~”라고 하면 관리자 전용 CMS이므로 `web` 디렉터리를 확인한다.
-- 사용자가 그냥 “웹에서~”라고 하면 CMS인지 사용자 모바일 웹인지 먼저 재질문해 확인한 후 작업한다.
-- **API 문서화 규칙**: 새로운 화면을 만들거나 기존 화면에 API를 연동/수정하는 경우, 즉시 `docs/api_integration_status.md`에 해당 화면명·파일 경로·사용 API·연동 상태를 기록하고 유지한다.
+## 5. API 설계 가이드 (API Design)
 
-모든 작업은 토큰 최적화하여 진행해줘.
+* **사용자 API와 관리자 API의 명확한 분리**:
+  * 사용자(앱/웹) 기능은 사용자 전용 경로(예: `/api/v1/*` 또는 `/api/app/*`), 관리자(CMS) 기능은 관리자 전용 경로(예: `/api/admin/*`)로 분리하며 두 스타일을 혼용하지 않는다.
+* **사용자 API (화면 중심 응답)**:
+  * 프론트엔드가 데이터를 추가 조합하지 않고 화면에서 바로 사용할 수 있도록 가공된 데이터를 제공한다.
+  * 목록 응답은 모바일 무한 스크롤/더보기 UI에 최적화된 메타데이터 구조(예: `{ data, meta: { page, perPage, hasMore } }`)를 사용한다.
+* **관리자 API (데이터/시스템 중심 응답)**:
+  * 관리자 화면에 필요한 전체 데이터 개수, 현재 페이지, 필터/정렬 정보가 포함된 표준 리스트 메타데이터 구조를 유지한다.
+* **기존 API 스타일 일관성 준수**:
+  * 새로운 API 작성 시 먼저 사용자용인지 관리자용인지 구분하고, 프로젝트 내 기존 유사 API의 URL 경로, 인증 미들웨어, 응답 포맷, 페이지네이션 방식을 그대로 맞춰 작성한다.
+
+---
+
+## 6. 테스트 및 품질 관리 (Testing & Quality)
+
+* **주요 기능 자동 테스트**: 중요한 비즈니스 로직이나 데이터 변경이 발생하는 주요 기능을 추가/수정할 때는 백엔드 및 프론트엔드의 테스트 코드를 함께 작성하여 검증한다.
+* **배포 전 DB 변경 사전 검증**: 데이터베이스 구조 변경(마이그레이션)이 포함되어 배포할 때는, 실제 반영 전 반드시 가상 실행(Dry-run) 명령을 통해 에러 여부를 사전에 확인한다.
+
+---
+
+## 7. 대화 및 협업 규칙 (Communication)
+
+* **한국어 응답**: 모든 에이전트와 도구의 응답, 코드 주석, 설명은 반드시 한국어로 작성한다.
+* **분석 및 이해 요청 시 행동 제한**: 사용자가 "내가 이해되냐" 또는 분석을 요구한 경우, 분석과 대답만 수행하며 코드 수정이나 파일 조작 등 추가 행동은 하지 않는다.
+* **지정 디렉터리 및 용어 명확화**:
+  * 사용자가 "앱" 또는 "모바일웹"을 언급하면 사용자용 프론트엔드 영역을 우선 확인한다.
+  * 사용자가 "CMS" 또는 "관리자"를 언급하면 관리자 전용 웹 영역을 우선 확인한다.
+  * 사용자가 모호하게 "웹에서~"라고 요청하는 경우, 사용자용 화면인지 관리자용 CMS인지 먼저 재질문하여 확인한 후 작업한다.
+* **API 및 화면 연동 문서화**: 새로운 화면을 만들거나 기존 화면에 API를 연동/수정하는 경우, 연동 현황 문서(예: `docs/api_integration_status.md`)에 화면명, 파일 경로, 사용 API, 연동 상태를 즉시 기록하고 유지한다.
+* **토큰 최적화**: 모든 대화, 분석, 코드 수정 작업은 토큰 사용량을 최적화하여 간결하고 명확하게 진행한다.
