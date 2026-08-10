@@ -1,3 +1,17 @@
+# Dependencies
+/node_modules
+/.pnpm
+/.yarn
+
+# Next.js build output
+/.next/
+/out/
+/build
+
+# Environment files
+.env*.local
+.env
+
 # Python / 가상환경
 __pycache__/
 *.py[cod]
