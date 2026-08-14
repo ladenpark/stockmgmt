@@ -92,20 +92,33 @@ function getGoogleSheetsClient() {
   let privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
   if (!sheetId || !clientEmail || !privateKey) {
+    console.warn("[Google Sheets Config Missing] 환경변수(SHEET_ID, CLIENT_EMAIL, PRIVATE_KEY) 누락됨");
     return null;
   }
 
-  // private key의 escape 개행문자 처리
+  // private key의 escape 개행문자 및 따옴표 감싸기 정제
+  privateKey = privateKey.trim();
+  if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+    privateKey = privateKey.slice(1, -1);
+  }
+  if (privateKey.startsWith("'") && privateKey.endsWith("'")) {
+    privateKey = privateKey.slice(1, -1);
+  }
   privateKey = privateKey.replace(/\\n/g, "\n");
 
-  const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
+  try {
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
 
-  const sheets = google.sheets({ version: "v4", auth });
-  return { sheets, sheetId };
+    const sheets = google.sheets({ version: "v4", auth });
+    return { sheets, sheetId };
+  } catch (err) {
+    console.error("[Google Sheets Auth Error] JWT 생성 오류:", err);
+    return null;
+  }
 }
 
 // 1. [초기자산] 탭 파싱
