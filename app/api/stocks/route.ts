@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchStockQuotesBatch, fetchExchangeRate } from "@/lib/stockFetcher";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,10 +25,19 @@ export async function GET(request: NextRequest) {
 
     const batchResult = await fetchStockQuotesBatch(tickersToFetch);
 
-    return NextResponse.json({
-      success: true,
-      data: batchResult,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: batchResult,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("실시간 시세 API 수집 오류:", error);
     return NextResponse.json(
@@ -35,7 +45,12 @@ export async function GET(request: NextRequest) {
         success: false,
         error: error.message || "실시간 시세 및 환율을 수집하는 중 오류가 발생했습니다.",
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+        },
+      }
     );
   }
 }

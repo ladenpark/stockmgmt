@@ -228,9 +228,9 @@ export async function getPortfolioData(): Promise<PortfolioData> {
 
   const timeoutPromise = new Promise<PortfolioData>((resolve) => {
     setTimeout(() => {
-      console.warn("[Google Sheets Timeout] 2.5초 지연으로 즉시 Fallback 포트폴리오 적용");
+      console.warn("[Google Sheets Timeout] 8초 지연으로 Fallback 적용");
       resolve(computePortfolioData(getMockInitialAssets(), getMockTradeHistory(), getMockAssetHistory()));
-    }, 2500);
+    }, 8000);
   });
 
   const fetchPromise = (async () => {
