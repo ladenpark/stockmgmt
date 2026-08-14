@@ -39,11 +39,13 @@ export interface StockBatchResult {
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-// 1. USD/KRW 실시간 환율 수집 (다중 시도)
+// --------------------------------------------------------------------------
+// 1. USD/KRW 실시간 환율 수집 (Primary: Open ER API ➡️ Fallback: Yahoo Finance)
+// --------------------------------------------------------------------------
 export async function fetchExchangeRate(): Promise<ExchangeRateInfo> {
   const nowStr = new Date().toISOString();
 
-  // 1차: open.er-api.com 실시간 오픈 환율 API
+  // Primary: open.er-api.com 실시간 오픈 환율 API
   try {
     const res = await fetch("https://open.er-api.com/v6/latest/USD", {
       headers: { "User-Agent": BROWSER_USER_AGENT },
@@ -61,10 +63,32 @@ export async function fetchExchangeRate(): Promise<ExchangeRateInfo> {
       }
     }
   } catch (err) {
-    console.warn("오픈 환율 API 수집 실패, Yahoo Finance 시도:", err);
+    console.warn("[ExchangeRate Primary Error] Open ER API 실패, Fallback(Yahoo) 시도:", err);
   }
 
-  // 2차: Yahoo Finance KRW=X
+  // Fallback: Yahoo Finance Chart API KRW=X
+  try {
+    const res = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/KRW=X?interval=1d", {
+      headers: { "User-Agent": BROWSER_USER_AGENT },
+      next: { revalidate: 300 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+      const rate = meta?.regularMarketPrice;
+      if (rate && typeof rate === "number") {
+        return {
+          pair: "USD/KRW",
+          rate: Number(rate.toFixed(2)),
+          updatedAt: nowStr,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[ExchangeRate Fallback 1 Error] Yahoo Chart API 실패, SDK 시도:", err);
+  }
+
+  // Fallback 2: Yahoo Finance SDK
   try {
     const result = await yahooFinance.quote("KRW=X");
     const rate = result?.regularMarketPrice || result?.bid;
@@ -76,7 +100,7 @@ export async function fetchExchangeRate(): Promise<ExchangeRateInfo> {
       };
     }
   } catch (error) {
-    console.warn("Yahoo Finance 환율 수집 실패, 기본 환율 사용:", error);
+    console.warn("[ExchangeRate Fallback 2 Error] Yahoo Finance SDK 실패, 기본값 사용:", error);
   }
 
   return {
@@ -86,7 +110,55 @@ export async function fetchExchangeRate(): Promise<ExchangeRateInfo> {
   };
 }
 
-// 2. 미국 주식 (USD/알파벳) 실시간 시세 수집 (Yahoo Chart API + Naver + Yahoo SDK + Fallback)
+// --------------------------------------------------------------------------
+// 2. 미국 주식 (US Stock) 시세 수집
+// Primary: Naver Overseas API ➡️ Fallback 1: FMP API ➡️ Fallback 2: Yahoo Chart API/SDK
+// --------------------------------------------------------------------------
+
+// Fallback 1 Helper: Financial Modeling Prep (FMP) API
+async function fetchFMPStockQuote(ticker: string, exchangeRate: number): Promise<StockQuote | null> {
+  const fmpApiKey = process.env.FMP_API_KEY || process.env.VITE_FMP_API_KEY;
+  if (!fmpApiKey) return null;
+
+  const nowStr = new Date().toISOString();
+  try {
+    const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${ticker}?apikey=${fmpApiKey}`, {
+      headers: { "User-Agent": BROWSER_USER_AGENT },
+      next: { revalidate: 60 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const item = data[0];
+        const regularPrice = item.price || 0;
+        const change = item.change || 0;
+        const changePercent = item.changesPercentage || 0;
+        const priceKRW = regularPrice * exchangeRate;
+
+        return {
+          ticker: ticker,
+          symbol: item.symbol || ticker,
+          name: item.name || ticker,
+          currency: "USD",
+          market: "US",
+          regularMarketPrice: regularPrice,
+          regularMarketChange: Number(change.toFixed(4)),
+          regularMarketChangePercent: Number(changePercent.toFixed(2)),
+          currentPrice: regularPrice,
+          currentChangePercent: Number(changePercent.toFixed(2)),
+          priceKRW: Math.round(priceKRW),
+          marketState: "CLOSED",
+          marketStateLabel: "장마감",
+          updatedAt: nowStr,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(`[US Stock Fallback FMP Error] ${ticker}:`, err);
+  }
+  return null;
+}
+
 export async function fetchUSStockQuote(ticker: string, exchangeRate: number): Promise<StockQuote> {
   const cleanTicker = ticker.trim().toUpperCase();
   const nowStr = new Date().toISOString();
@@ -111,58 +183,13 @@ export async function fetchUSStockQuote(ticker: string, exchangeRate: number): P
     };
   }
 
-  // 1차: Yahoo Finance Chart v8 API (Browser User-Agent 적용으로 100% 실시간 시세 제공)
-  try {
-    const chartRes = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${cleanTicker}?interval=1d`,
-      {
-        headers: { "User-Agent": BROWSER_USER_AGENT },
-        next: { revalidate: 60 },
-      }
-    );
-
-    if (chartRes.ok) {
-      const data = await chartRes.json();
-      const meta = data?.chart?.result?.[0]?.meta;
-
-      if (meta && typeof meta.regularMarketPrice === "number") {
-        const regularPrice = meta.regularMarketPrice;
-        const prevClose = meta.chartPreviousClose || meta.previousClose || regularPrice;
-        const regularChange = regularPrice - prevClose;
-        const regularChangePercent = prevClose > 0 ? (regularChange / prevClose) * 100 : 0;
-        const name = meta.longName || meta.shortName || cleanTicker;
-
-        const priceKRW = regularPrice * exchangeRate;
-
-        return {
-          ticker: cleanTicker,
-          symbol: cleanTicker,
-          name: name,
-          currency: "USD",
-          market: "US",
-          regularMarketPrice: regularPrice,
-          regularMarketChange: Number(regularChange.toFixed(4)),
-          regularMarketChangePercent: Number(regularChangePercent.toFixed(2)),
-          currentPrice: regularPrice,
-          currentChangePercent: Number(regularChangePercent.toFixed(2)),
-          priceKRW: Math.round(priceKRW),
-          marketState: "CLOSED",
-          marketStateLabel: "장마감",
-          updatedAt: nowStr,
-        };
-      }
-    }
-  } catch (err) {
-    console.warn(`[US Stock Chart API] ${cleanTicker} 수집 실패, Naver 시도:`, err);
-  }
-
-  // 2차: Naver Overseas Stock API (.O, .N, .A 순서 시도)
+  // 1. Primary: Naver Overseas Stock API (.O, .N, .A 순서 시도 - 프리마켓/애프터마켓 지원)
   const symbolsToTry = [`${cleanTicker}.O`, `${cleanTicker}.N`, `${cleanTicker}.A`];
   for (const symbol of symbolsToTry) {
     try {
       const res = await fetch(`https://api.stock.naver.com/stock/${symbol}/basic`, {
         headers: { "User-Agent": BROWSER_USER_AGENT },
-        next: { revalidate: 60 },
+        next: { revalidate: 30 },
       });
       if (res.ok) {
         const data = await res.json();
@@ -177,16 +204,17 @@ export async function fetchUSStockQuote(ticker: string, exchangeRate: number): P
           let currentChangePercent = regularChangePercent;
 
           if (data.overMarketPriceInfo) {
-            const overPrice = parseFloat(String(data.overMarketPriceInfo.overPrice).replace(/,/g, "")) || regularPrice;
-            const overRatio = parseFloat(String(data.overMarketPriceInfo.fluctuationsRatio).replace(/,/g, "")) || regularChangePercent;
-            const overType = data.overMarketPriceInfo.overPriceType;
+            const overInfo = data.overMarketPriceInfo;
+            const overPrice = parseFloat(String(overInfo.overPrice || overInfo.overPriceRaw).replace(/,/g, "")) || regularPrice;
+            const overRatio = parseFloat(String(overInfo.fluctuationsRatio || overInfo.fluctuationsRatioRaw).replace(/,/g, "")) || regularChangePercent;
+            const sessionType = overInfo.tradingSessionType || overInfo.overPriceType;
 
-            if (overType === "PRE_MARKET") {
+            if (sessionType === "PRE_MARKET" || overInfo.overMarketStatus === "OPEN") {
               marketState = "PRE";
               marketStateLabel = "프리마켓";
               currentPrice = overPrice;
               currentChangePercent = overRatio;
-            } else if (overType === "AFTER_MARKET") {
+            } else if (sessionType === "AFTER_MARKET") {
               marketState = "POST";
               marketStateLabel = "애프터마켓";
               currentPrice = overPrice;
@@ -219,7 +247,57 @@ export async function fetchUSStockQuote(ticker: string, exchangeRate: number): P
     }
   }
 
-  // 3차: Yahoo Finance SDK
+  // 2. Fallback 1: FMP API (Financial Modeling Prep)
+  const fmpQuote = await fetchFMPStockQuote(cleanTicker, exchangeRate);
+  if (fmpQuote) {
+    return fmpQuote;
+  }
+
+  // 3. Fallback 2: Yahoo Finance Chart API / SDK
+  try {
+    const chartRes = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${cleanTicker}?interval=1d&includePrePost=true`,
+      {
+        headers: { "User-Agent": BROWSER_USER_AGENT },
+        next: { revalidate: 60 },
+      }
+    );
+
+    if (chartRes.ok) {
+      const data = await chartRes.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+
+      if (meta && typeof meta.regularMarketPrice === "number") {
+        const regularPrice = meta.regularMarketPrice;
+        const prevClose = meta.chartPreviousClose || meta.previousClose || regularPrice;
+        const regularChange = regularPrice - prevClose;
+        const regularChangePercent = prevClose > 0 ? (regularChange / prevClose) * 100 : 0;
+        const name = meta.longName || meta.shortName || cleanTicker;
+        const priceKRW = regularPrice * exchangeRate;
+
+        return {
+          ticker: cleanTicker,
+          symbol: cleanTicker,
+          name: name,
+          currency: "USD",
+          market: "US",
+          regularMarketPrice: regularPrice,
+          regularMarketChange: Number(regularChange.toFixed(4)),
+          regularMarketChangePercent: Number(regularChangePercent.toFixed(2)),
+          currentPrice: regularPrice,
+          currentChangePercent: Number(regularChangePercent.toFixed(2)),
+          priceKRW: Math.round(priceKRW),
+          marketState: "CLOSED",
+          marketStateLabel: "장마감",
+          updatedAt: nowStr,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(`[US Stock Fallback Yahoo Chart Error] ${cleanTicker}:`, err);
+  }
+
+  // Yahoo Finance SDK
   try {
     const res = await yahooFinance.quote(cleanTicker);
     if (res && res.regularMarketPrice) {
@@ -281,14 +359,92 @@ export async function fetchUSStockQuote(ticker: string, exchangeRate: number): P
       };
     }
   } catch (error) {
-    console.warn(`[US Stock] ${cleanTicker} 수집 오류:`, error);
+    console.warn(`[US Stock Fallback Yahoo SDK Error] ${cleanTicker}:`, error);
   }
 
-  // Fallback
+  // Final Mock Fallback
   return getMockUSQuote(cleanTicker, exchangeRate);
 }
 
-// 3. 한국 주식 (KRW/숫자 6자리) 정규장 및 시간외 시세 수집
+// --------------------------------------------------------------------------
+// 3. 한국 주식 및 연금 ETF (KR Stock) 시세 수집
+// Primary: Naver Domestic API ➡️ Fallback 1: KIS Open API ➡️ Fallback 2: Yahoo Finance (.KS/.KQ)
+// --------------------------------------------------------------------------
+
+// Fallback 1 Helper: 한국투자증권 (KIS) Open API
+async function fetchKISStockQuote(ticker: string): Promise<StockQuote | null> {
+  const kisAppKey = process.env.KIS_APPKEY;
+  const kisAppSecret = process.env.KIS_APPSECRET;
+  if (!kisAppKey || !kisAppSecret) return null;
+
+  const nowStr = new Date().toISOString();
+
+  try {
+    // 1. KIS OAuth Access Token 발급
+    const tokenRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "client_credentials",
+        appkey: kisAppKey,
+        appsecret: kisAppSecret,
+      }),
+    });
+
+    if (tokenRes.ok) {
+      const tokenData = await tokenRes.json();
+      const accessToken = tokenData.access_token;
+
+      if (accessToken) {
+        // 2. 국내 주식 시세 조회 API
+        const priceRes = await fetch(
+          `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${ticker}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              authorization: `Bearer ${accessToken}`,
+              appkey: kisAppKey,
+              appsecret: kisAppSecret,
+              tr_id: "FHKST01010100",
+            },
+          }
+        );
+
+        if (priceRes.ok) {
+          const priceData = await priceRes.json();
+          const output = priceData.output;
+
+          if (output && output.stck_prpr) {
+            const currentPrice = parseFloat(output.stck_prpr) || 0;
+            const change = parseFloat(output.prdy_vrss) || 0;
+            const changePercent = parseFloat(output.prdy_ctrt) || 0;
+
+            return {
+              ticker: ticker,
+              symbol: `${ticker}.KS`,
+              name: `국내종목 (${ticker})`,
+              currency: "KRW",
+              market: "KR",
+              regularMarketPrice: currentPrice,
+              regularMarketChange: change,
+              regularMarketChangePercent: changePercent,
+              currentPrice: currentPrice,
+              currentChangePercent: changePercent,
+              priceKRW: currentPrice,
+              marketState: "REGULAR",
+              marketStateLabel: "정규장",
+              updatedAt: nowStr,
+            };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[KR Stock Fallback KIS Error] ${ticker}:`, err);
+  }
+  return null;
+}
+
 export async function fetchKRStockQuote(ticker: string): Promise<StockQuote> {
   const cleanTicker = ticker.trim();
   const nowStr = new Date().toISOString();
@@ -313,11 +469,11 @@ export async function fetchKRStockQuote(ticker: string): Promise<StockQuote> {
     };
   }
 
-  // 1차: Naver Domestic Integration API
+  // 1. Primary: Naver Domestic Integration API
   try {
     const res = await fetch(`https://m.stock.naver.com/api/stock/${cleanTicker}/integration`, {
       headers: { "User-Agent": BROWSER_USER_AGENT },
-      next: { revalidate: 60 },
+      next: { revalidate: 30 },
     });
     if (res.ok) {
       const data = await res.json();
@@ -348,10 +504,16 @@ export async function fetchKRStockQuote(ticker: string): Promise<StockQuote> {
       }
     }
   } catch (err) {
-    console.warn(`[KR Stock] ${cleanTicker} Naver 시세 수집 실패:`, err);
+    console.warn(`[KR Stock Primary Naver Error] ${cleanTicker}:`, err);
   }
 
-  // 2차: Yahoo Finance (.KS, .KQ)
+  // 2. Fallback 1: 한국투자증권 (KIS) Open API
+  const kisQuote = await fetchKISStockQuote(cleanTicker);
+  if (kisQuote) {
+    return kisQuote;
+  }
+
+  // 3. Fallback 2: Yahoo Finance (.KS, .KQ)
   const symbolsToTry = [`${cleanTicker}.KS`, `${cleanTicker}.KQ`];
   for (const symbol of symbolsToTry) {
     try {
@@ -383,11 +545,41 @@ export async function fetchKRStockQuote(ticker: string): Promise<StockQuote> {
     }
   }
 
-  // Fallback
+  // Final Mock Fallback
   return getMockKRQuote(cleanTicker);
 }
 
+// --------------------------------------------------------------------------
+// Stock Quote In-Memory Cache (TTL: 30 seconds)
+// --------------------------------------------------------------------------
+const quoteCacheMap = new Map<string, { data: StockQuote; timestamp: number }>();
+const QUOTE_CACHE_TTL_MS = 30 * 1000;
+
+async function getCachedUSQuote(ticker: string, rate: number): Promise<StockQuote> {
+  const now = Date.now();
+  const cached = quoteCacheMap.get(ticker.toUpperCase());
+  if (cached && now - cached.timestamp < QUOTE_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const quote = await fetchUSStockQuote(ticker, rate);
+  quoteCacheMap.set(ticker.toUpperCase(), { data: quote, timestamp: now });
+  return quote;
+}
+
+async function getCachedKRQuote(ticker: string): Promise<StockQuote> {
+  const now = Date.now();
+  const cached = quoteCacheMap.get(ticker.toUpperCase());
+  if (cached && now - cached.timestamp < QUOTE_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const quote = await fetchKRStockQuote(ticker);
+  quoteCacheMap.set(ticker.toUpperCase(), { data: quote, timestamp: now });
+  return quote;
+}
+
+// --------------------------------------------------------------------------
 // 4. 배치 시세 & 환율 종합 수집 함수
+// --------------------------------------------------------------------------
 export async function fetchStockQuotesBatch(tickers: string[]): Promise<StockBatchResult> {
   const exchangeInfo = await fetchExchangeRate();
   const rate = exchangeInfo.rate;
@@ -407,8 +599,8 @@ export async function fetchStockQuotesBatch(tickers: string[]): Promise<StockBat
   }
 
   const quotesList = await Promise.all([
-    ...usTickers.map((t) => fetchUSStockQuote(t, rate)),
-    ...krTickers.map((t) => fetchKRStockQuote(t)),
+    ...usTickers.map((t) => getCachedUSQuote(t, rate)),
+    ...krTickers.map((t) => getCachedKRQuote(t)),
   ]);
 
   const quotesMap: Record<string, StockQuote> = {};
@@ -436,7 +628,7 @@ export async function fetchStockQuotesBatch(tickers: string[]): Promise<StockBat
 }
 
 // --------------------------------------------------------------------------
-// Mock Fallback Quotes (API 미지원/오류 시 사용)
+// Mock Fallback Quotes (API 미지원/오류 시 최종 보완)
 // --------------------------------------------------------------------------
 function getMockUSQuote(ticker: string, exchangeRate: number): StockQuote {
   const nowStr = new Date().toISOString();

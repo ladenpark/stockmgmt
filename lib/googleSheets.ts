@@ -213,15 +213,45 @@ export async function fetchAssetHistory(): Promise<AssetHistoryRecord[]> {
   }
 }
 
+// --------------------------------------------------------------------------
+// Server In-Memory Cache (TTL: 30 seconds)
+// --------------------------------------------------------------------------
+let cachedPortfolioData: { data: PortfolioData; timestamp: number } | null = null;
+const PORTFOLIO_CACHE_TTL_MS = 30 * 1000;
+
 // 4. 초기자산 + 거래내역 합성 종합 포트폴리오 산출
 export async function getPortfolioData(): Promise<PortfolioData> {
-  const [initialAssets, tradeHistory, assetHistory] = await Promise.all([
-    fetchInitialAssets(),
-    fetchTradeHistory(),
-    fetchAssetHistory(),
-  ]);
+  const now = Date.now();
+  if (cachedPortfolioData && now - cachedPortfolioData.timestamp < PORTFOLIO_CACHE_TTL_MS) {
+    return cachedPortfolioData.data;
+  }
 
-  // 보유 종목 및 예수금 맵핑
+  const timeoutPromise = new Promise<PortfolioData>((resolve) => {
+    setTimeout(() => {
+      console.warn("[Google Sheets Timeout] 2.5초 지연으로 즉시 Fallback 포트폴리오 적용");
+      resolve(computePortfolioData(getMockInitialAssets(), getMockTradeHistory(), getMockAssetHistory()));
+    }, 2500);
+  });
+
+  const fetchPromise = (async () => {
+    const [initialAssets, tradeHistory, assetHistory] = await Promise.all([
+      fetchInitialAssets(),
+      fetchTradeHistory(),
+      fetchAssetHistory(),
+    ]);
+    return computePortfolioData(initialAssets, tradeHistory, assetHistory);
+  })();
+
+  const result = await Promise.race([fetchPromise, timeoutPromise]);
+  cachedPortfolioData = { data: result, timestamp: Date.now() };
+  return result;
+}
+
+function computePortfolioData(
+  initialAssets: InitialAsset[],
+  tradeHistory: TradeRecord[],
+  assetHistory: AssetHistoryRecord[]
+): PortfolioData {
   const holdingsMap = new Map<string, PortfolioHolding>();
   const cashMap = new Map<string, PortfolioCash>();
 
@@ -337,7 +367,7 @@ export async function getPortfolioData(): Promise<PortfolioData> {
   const holdings = Array.from(holdingsMap.values()).filter((h) => h.quantity > 0);
   const cashHoldings = Array.from(cashMap.values());
 
-  return {
+  const result: PortfolioData = {
     holdings,
     cashHoldings,
     summary: {
@@ -350,6 +380,9 @@ export async function getPortfolioData(): Promise<PortfolioData> {
     tradeHistory,
     assetHistory,
   };
+
+  cachedPortfolioData = { data: result, timestamp: Date.now() };
+  return result;
 }
 
 // --------------------------------------------------------------------------
