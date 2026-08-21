@@ -1,0 +1,195 @@
+/* ==========================================================================
+   Stock Management Web App - Alexandria Custom Styles
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700;800&family=Noto+Serif+KR:wght@400;600;700&family=Public+Sans:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+:root {
+    --primary: #094cb2;
+    --primary-container: #3366cc;
+    --primary-fixed: #d9e2ff;
+    --surface: #faf9fa;
+    --surface-dim: #dbdadb;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f5f3f4;
+    --surface-container: #efedee;
+    --surface-container-high: #e9e8e9;
+    --surface-container-highest: #e3e2e3;
+    --on-surface: #1b1c1d;
+    --on-surface-variant: #434653;
+    --outline: #737784;
+    --outline-variant: #c3c6d5;
+    --error: #ba1a1a;
+    --error-container: #ffdad6;
+    --tertiary: #6d5e00;
+    --tertiary-container: #bfab49;
+    --font-headline: 'Noto Serif KR', 'Noto Serif', serif;
+    --font-body: 'Pretendard', 'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-label: 'Public Sans', 'Noto Sans KR', sans-serif;
+}
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--surface);
+    color: var(--on-surface);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.font-headline {
+    font-family: var(--font-headline);
+}
+
+.font-body {
+    font-family: var(--font-body);
+}
+
+.font-label {
+    font-family: var(--font-label);
+}
+
+/* Custom ghost outline and borders */
+.ghost-border {
+    border: 1px solid rgba(195, 198, 213, 0.25);
+}
+
+.ghost-outline {
+    box-shadow: inset 0 0 0 1px rgba(195, 198, 213, 0.2);
+}
+
+/* Glassmorphism */
+.glass-panel {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-nav {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.dark .glass-panel {
+    background: rgba(30, 31, 35, 0.85);
+}
+
+.dark .glass-nav {
+    background: rgba(30, 31, 35, 0.92);
+}
+
+/* Hide Scrollbar */
+.no-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar,
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Custom Tab & Page Transitions */
+.page-view {
+    display: none;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-view.active {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Sub-views for Analysis tabs */
+.analysis-subview {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.analysis-subview.active {
+    display: block;
+    opacity: 1;
+}
+
+/* Bar Chart Grow Animation */
+@keyframes growUp {
+    from {
+        height: 0;
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-bar {
+    animation: growUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform-origin: bottom;
+}
+
+/* Keypad Ripple and Click Feedback */
+.keypad-btn {
+    transition: all 0.1s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.keypad-btn:active {
+    transform: scale(0.92);
+    background-color: var(--surface-container-high) !important;
+}
+
+/* Bottom Sheet & Modal Animations */
+.modal-overlay {
+    transition: opacity 0.25s ease;
+}
+
+.modal-content {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+}
+
+.bottomsheet-content {
+    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.drawer-content {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Floating Action Button Pulse */
+@keyframes fabPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(9, 76, 178, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 12px rgba(9, 76, 178, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(9, 76, 178, 0);
+    }
+}
+
+.pulse-primary {
+    animation: fabPulse 2s infinite;
+}
+
+/* Card Hover Lift */
+.card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+}
+
+/* Device View Modes */
+.desktop-viewport-mode {
+    max-width: 1200px;
+    margin: 0 auto;
+}
