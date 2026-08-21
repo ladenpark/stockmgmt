@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Stock Management Web App - Alexandria Mobile-First App Design Styles
+   Stock Management Web App - Clean Responsive Modern Styles
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700;800&family=Noto+Serif+KR:wght@400;600;700&family=Public+Sans:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -8,25 +8,24 @@
     --primary: #094cb2;
     --primary-container: #3366cc;
     --primary-fixed: #d9e2ff;
-    --surface: #f7f8fa;
+    --surface: #faf9fa;
     --surface-dim: #dbdadb;
     --surface-container-lowest: #ffffff;
-    --surface-container-low: #f2f4f7;
-    --surface-container: #eaecf0;
-    --surface-container-high: #e0e2e7;
-    --surface-container-highest: #d5d8df;
-    --on-surface: #101828;
-    --on-surface-variant: #475467;
-    --outline: #98a2b3;
-    --outline-variant: #d0d5dd;
-    --error: #d92d20;
-    --error-container: #fee4e2;
-    --tertiary: #b54708;
-    --tertiary-container: #fef0c7;
+    --surface-container-low: #f5f3f4;
+    --surface-container: #efedee;
+    --surface-container-high: #e9e8e9;
+    --surface-container-highest: #e3e2e3;
+    --on-surface: #1b1c1d;
+    --on-surface-variant: #434653;
+    --outline: #737784;
+    --outline-variant: #c3c6d5;
+    --error: #ba1a1a;
+    --error-container: #ffdad6;
+    --tertiary: #6d5e00;
+    --tertiary-container: #bfab49;
     --font-headline: 'Noto Serif KR', 'Noto Serif', serif;
     --font-body: 'Pretendard', 'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-label: 'Public Sans', 'Noto Sans KR', sans-serif;
-    --app-max-width: 440px;
 }
 
 * {
@@ -36,78 +35,13 @@
 
 body {
     font-family: var(--font-body);
-    background-color: #0f172a; /* Sleek dark background for desktop canvas */
+    background-color: var(--surface);
     color: var(--on-surface);
     margin: 0;
     padding: 0;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-}
-
-/* ==========================================================================
-   App Shell & Desktop Simulator Frame
-   ========================================================================== */
-#device-wrapper {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0f172a 100%);
-}
-
-#app-container {
-    width: 100%;
-    max-width: var(--app-max-width);
-    min-height: 100vh;
-    background-color: var(--surface);
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
-    overflow-x: hidden;
-}
-
-/* Wide Mode (Toggleable on PC) */
-#app-container.wide-mode {
-    max-width: 768px;
-    border-radius: 28px;
-    min-height: 900px;
-    margin: 32px 0;
-}
-
-/* Phone Simulator Mode on PC */
-@media (min-width: 641px) {
-    #device-wrapper {
-        padding: 32px 16px;
-    }
-    #app-container:not(.wide-mode) {
-        border-radius: 44px;
-        min-height: 890px;
-        max-height: 92vh;
-        border: 8px solid #1e293b;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.1);
-    }
-}
-
-/* Mobile Screen Fullscreen */
-@media (max-width: 640px) {
-    #device-wrapper {
-        padding: 0;
-        background: var(--surface);
-    }
-    #app-container {
-        max-width: 100%;
-        min-height: 100vh;
-        border-radius: 0 !important;
-        border: none !important;
-        box-shadow: none !important;
-    }
-    #desktop-toolbar {
-        display: none !important;
-    }
 }
 
 /* ==========================================================================
@@ -149,39 +83,25 @@ body {
 }
 
 /* ==========================================================================
-   Bottom Navigation Bar (App Dock)
+   Bottom Navigation Bar (Clean Responsive Dock)
    ========================================================================== */
 .app-bottom-nav {
     position: fixed;
     bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
     width: 100%;
-    max-width: var(--app-max-width);
-    height: 68px;
+    height: 64px;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid rgba(208, 213, 221, 0.6);
+    border-top: 1px solid rgba(195, 198, 213, 0.4);
     display: flex;
     justify-content: space-around;
     align-items: center;
-    padding: 6px 12px;
+    padding: 4px 16px;
     z-index: 45;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
-}
-
-#app-container.wide-mode .app-bottom-nav {
-    max-width: 768px;
-    border-bottom-left-radius: 28px;
-    border-bottom-right-radius: 28px;
-}
-
-@media (min-width: 641px) {
-    #app-container:not(.wide-mode) .app-bottom-nav {
-        border-bottom-left-radius: 36px;
-        border-bottom-right-radius: 36px;
-    }
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .nav-tab-btn {
@@ -190,13 +110,14 @@ body {
     align-items: center;
     justify-content: center;
     flex: 1;
-    padding: 6px 4px;
+    max-width: 120px;
+    padding: 6px 8px;
     color: var(--on-surface-variant);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     letter-spacing: -0.2px;
     transition: all 0.15s ease;
-    border-radius: 16px;
+    border-radius: 12px;
     cursor: pointer;
     background: transparent;
     border: none;
@@ -204,13 +125,13 @@ body {
 }
 
 .nav-tab-btn .material-symbols-outlined {
-    font-size: 24px;
+    font-size: 22px;
     margin-bottom: 2px;
     transition: transform 0.15s ease, font-variation-settings 0.15s ease;
 }
 
 .nav-tab-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.94);
 }
 
 .nav-tab-btn.active {
@@ -232,14 +153,14 @@ body {
 }
 
 /* ==========================================================================
-   Custom Utility Classes & Mobile Polishing
+   Custom Utility Classes
    ========================================================================== */
 .ghost-border {
-    border: 1px solid rgba(208, 213, 221, 0.7);
+    border: 1px solid rgba(195, 198, 213, 0.35);
 }
 
 .ghost-outline {
-    box-shadow: inset 0 0 0 1px rgba(208, 213, 221, 0.6);
+    box-shadow: inset 0 0 0 1px rgba(195, 198, 213, 0.3);
 }
 
 .glass-nav {
@@ -288,14 +209,18 @@ body {
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
 }
 
-/* Mobile Card Tap Interaction */
-.mobile-card {
-    transition: transform 0.12s ease, background-color 0.12s ease;
+/* Card Tap & Hover */
+.card-interactive {
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
-.mobile-card:active {
-    transform: scale(0.985);
-    background-color: var(--surface-container-low);
+.card-interactive:hover {
+    transform: translateY(-1.5px);
+    box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.04);
+}
+
+.card-interactive:active {
+    transform: scale(0.99);
 }
 
 /* Bar Chart Animation */

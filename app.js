@@ -343,35 +343,7 @@ function switchTab(tabId) {
     }
 
     // Scroll to top
-    const appContainer = document.getElementById('app-container');
-    if (appContainer) appContainer.scrollTop = 0;
     window.scrollTo({ top: 0, behavior: 'instant' });
-}
-
-// PC Desktop Device View Switcher
-function toggleDeviceViewMode(mode) {
-    const container = document.getElementById('app-container');
-    const btnPhone = document.getElementById('btn-view-phone');
-    const btnWide = document.getElementById('btn-view-wide');
-    if (!container) return;
-    
-    if (mode === 'wide') {
-        container.classList.add('wide-mode');
-        if (btnWide) {
-            btnWide.className = "px-3 py-1.5 rounded-full bg-primary text-white text-xs font-bold shadow-xs";
-        }
-        if (btnPhone) {
-            btnPhone.className = "px-3 py-1.5 rounded-full text-slate-300 hover:text-white text-xs font-medium";
-        }
-    } else {
-        container.classList.remove('wide-mode');
-        if (btnPhone) {
-            btnPhone.className = "px-3 py-1.5 rounded-full bg-primary text-white text-xs font-bold shadow-xs";
-        }
-        if (btnWide) {
-            btnWide.className = "px-3 py-1.5 rounded-full text-slate-300 hover:text-white text-xs font-medium";
-        }
-    }
 }
 
 // Currency Toggle (KRW <-> USD)
