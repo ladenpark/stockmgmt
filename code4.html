@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Alexandria - Analysis Report</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Alexandria Profile -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Noto+Serif:wght@400;600;700&amp;family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "inverse-on-surface": "#f2f0f1",
+                        "primary-container": "#3366cc",
+                        "on-secondary-fixed-variant": "#42474b",
+                        "inverse-primary": "#b1c5ff",
+                        "surface-container-high": "#e9e8e9",
+                        "primary": "#094cb2",
+                        "secondary-container": "#dfe3e8",
+                        "on-secondary": "#ffffff",
+                        "surface-container": "#efedee",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#001946",
+                        "surface-dim": "#dbdadb",
+                        "on-tertiary-fixed": "#211b00",
+                        "surface-tint": "#2259bf",
+                        "inverse-surface": "#303031",
+                        "surface-variant": "#e3e2e3",
+                        "on-secondary-fixed": "#171c20",
+                        "outline": "#737784",
+                        "on-primary-fixed-variant": "#00419d",
+                        "tertiary-container": "#bfab49",
+                        "on-primary-container": "#e7ebff",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#4a3f00",
+                        "primary-fixed": "#d9e2ff",
+                        "on-surface-variant": "#434653",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "surface": "#faf9fa",
+                        "primary-fixed-dim": "#b1c5ff",
+                        "on-background": "#1b1c1d",
+                        "surface-bright": "#faf9fa",
+                        "on-surface": "#1b1c1d",
+                        "surface-container-highest": "#e3e2e3",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#524600",
+                        "tertiary-fixed-dim": "#dcc661",
+                        "surface-container-low": "#f5f3f4",
+                        "on-secondary-container": "#606569",
+                        "background": "#faf9fa",
+                        "tertiary": "#6d5e00",
+                        "secondary-fixed": "#dfe3e8",
+                        "outline-variant": "#c3c6d5",
+                        "secondary-fixed-dim": "#c2c7cc",
+                        "secondary": "#5a5f63",
+                        "tertiary-fixed": "#f9e37a",
+                        "on-tertiary": "#ffffff"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem"
+                    },
+                    fontFamily: {
+                        "headline": ["Noto Serif", "serif"],
+                        "display": ["Noto Serif", "serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Public Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Hide scrollbar for clean chip row */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Bar chart animations */
+        @keyframes growUp {
+            from { height: 0; opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-bar {
+            animation: growUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transform-origin: bottom;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 py-4 bg-surface-container-lowest flat no shadows">
+<button class="text-primary hover:bg-surface-container-high transition-colors p-2 rounded-full flex items-center justify-center opacity-80 scale-95 transition-all focus:outline-none">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+<h1 class="font-headline font-bold text-primary text-2xl leading-tight tracking-tight">Alexandria</h1>
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high hover:bg-surface-container-high transition-colors cursor-pointer">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="A refined, high-end studio portrait of a professional individual in a minimalist setting. Soft, natural light illuminating the subject's face against a pristine white background. The aesthetic is clean, modern, and trustworthy, fitting for a premium financial advisory application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3kqhevjbhC6smcMkjTk3aWxueJspxTDYkqIQJqs2dgN_Y25_eaFswPfvguFxfAzlZmLVinQ-ClvoM_qEajlCKp9zLGWqTHvJcDBy5MMJr-gOIM4svwDf4R2l8xzjqBMmJ0L8BlMfAjnJPilgYYKlrBzqBOHhdTKfYN3JJhNTNLoVz5FIEwTYWHuAvQvxyZ8YpV4PxbSnoqBFvhhLsrxnpWOKeioST2Y_mwbN1RICCnpIqxInfc9dsfQ"/>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-24 pb-32 px-4 md:px-8 max-w-4xl mx-auto w-full flex flex-col gap-8">
+<!-- Header & Chips -->
+<section class="flex flex-col gap-6">
+<h2 class="font-headline text-4xl font-bold text-on-surface tracking-tight">Analysis Report</h2>
+<!-- Chip Navigation -->
+<div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+<button class="whitespace-nowrap px-5 py-2 rounded-full font-label text-sm font-medium bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors">수익 (Revenue)</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full font-label text-sm font-medium bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors">세금 (Tax)</button>
+<!-- Active Chip -->
+<button class="whitespace-nowrap px-5 py-2 rounded-full font-label text-sm font-medium bg-primary text-on-primary shadow-sm transition-all transform scale-100 hover:scale-105">배당 (Dividend)</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full font-label text-sm font-medium bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors">추이 (Trend)</button>
+<button class="whitespace-nowrap px-5 py-2 rounded-full font-label text-sm font-medium bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors">비중 (Weight)</button>
+</div>
+</section>
+<!-- Dividend Hero Stats (Bento Grid) -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Total Dividend Card -->
+<div class="bg-surface-container-lowest rounded-3xl p-6 flex flex-col gap-2 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-6xl">payments</span>
+</div>
+<span class="font-label text-xs font-semibold text-on-surface-variant uppercase tracking-widest">연간 예상 배당금</span>
+<div class="font-headline text-5xl font-bold text-on-surface mt-2">$2,400<span class="text-2xl text-on-surface-variant font-body ml-1">.00</span></div>
+<div class="flex items-center gap-1 mt-4 text-sm text-primary font-medium">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+12% vs last year</span>
+</div>
+</div>
+<!-- Dividend Yield Card -->
+<div class="bg-surface-container-lowest rounded-3xl p-6 flex flex-col gap-2 relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+<span class="material-symbols-outlined text-6xl">percent</span>
+</div>
+<span class="font-label text-xs font-semibold text-on-surface-variant uppercase tracking-widest">투자 배당률</span>
+<div class="font-headline text-5xl font-bold text-on-surface mt-2">3.5<span class="text-3xl text-on-surface-variant font-body">%</span></div>
+<div class="flex items-center gap-1 mt-4 text-sm text-outline font-medium">
+<span>Portfolio Average: 2.8%</span>
+</div>
+</div>
+</section>
+<!-- Monthly Chart Section -->
+<section class="bg-surface-container-lowest rounded-3xl p-6 md:p-8 flex flex-col gap-8">
+<div class="flex justify-between items-end">
+<div>
+<h3 class="font-headline text-2xl font-bold text-on-surface">월별 예상 배당금</h3>
+<p class="font-body text-sm text-on-surface-variant mt-1">Monthly Expected Dividend (USD)</p>
+</div>
+<button class="text-primary hover:bg-surface-container p-2 rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+<!-- CSS Bar Chart -->
+<div class="h-48 w-full flex items-end justify-between gap-1 sm:gap-2 mt-4 relative">
+<!-- Background Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
+<div class="w-full h-px bg-surface-container-high"></div>
+<div class="w-full h-px bg-surface-container-high"></div>
+<div class="w-full h-px bg-surface-container-high"></div>
+<div class="w-full h-px bg-surface-container-high"></div>
+</div>
+<!-- Bars (Jan - Dec) -->
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 40%;"></div>
+<span class="font-label text-xs text-on-surface-variant">Jan</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 60%; animation-delay: 0.05s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Feb</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary rounded-t-xl shadow-[0_0_15px_rgba(9,76,178,0.3)] animate-bar" style="height: 90%; animation-delay: 0.1s;"></div>
+<span class="font-label text-xs font-bold text-primary">Mar</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 50%; animation-delay: 0.15s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Apr</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 45%; animation-delay: 0.2s;"></div>
+<span class="font-label text-xs text-on-surface-variant">May</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 85%; animation-delay: 0.25s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Jun</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 35%; animation-delay: 0.3s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Jul</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 55%; animation-delay: 0.35s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Aug</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 95%; animation-delay: 0.4s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Sep</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 40%; animation-delay: 0.45s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Oct</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 65%; animation-delay: 0.5s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Nov</span>
+</div>
+<div class="w-full flex flex-col items-center gap-2 z-10 group relative">
+<div class="w-full bg-primary-container/30 rounded-t-xl group-hover:bg-primary transition-colors animate-bar" style="height: 100%; animation-delay: 0.55s;"></div>
+<span class="font-label text-xs text-on-surface-variant">Dec</span>
+</div>
+</div>
+</section>
+<!-- Timeline Section -->
+<section class="flex flex-col gap-4">
+<h3 class="font-headline text-2xl font-bold text-on-surface mb-2">이번 달 지급 예정</h3>
+<!-- List Items -->
+<div class="flex flex-col gap-3">
+<!-- Item 1: Microsoft -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-center justify-between group hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center p-2 overflow-hidden">
+<img alt="Microsoft Logo" class="w-full h-full object-contain" data-alt="A clean, minimalist vector rendering of a corporate technology logo resembling Microsoft. Four colored squares (red, green, blue, yellow) arranged in a grid on a crisp white background. High-end editorial style, no shadows, flat design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDx2vDN9CQyDXSdpECTTXcyOH59wB4KtX-uHwUJKfR47Qtay6hbAS4-hSHdZI0SCdquyfp3ZeT1vEkUs9ta0B9JHogZUql9Mj9XKhRlljf9hOFi-Zfbo3_6qWVV3D7KOjhZCIB0nF52ZrE_u6I4itPHmBHXU8HrW2Asab7nYaHi7-60PNqa50DxxnRlC44s2X_xN1PmzsO9FMimAJeB-1Lyx8kCYUo9OjTetgHdr3f-UtloHIA2c2cfig"/>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-lg text-on-surface">Microsoft Corp.</span>
+<span class="font-body text-sm text-on-surface-variant">MSFT • Mar 14</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline font-bold text-lg text-on-surface">$124.50</span>
+<span class="font-label text-xs font-medium text-tertiary bg-tertiary-container/30 px-2 py-0.5 rounded-full mt-1">Confirmed</span>
+</div>
+</div>
+<!-- Item 2: Realty Income -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-center justify-between group hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center p-2 overflow-hidden">
+<img alt="Realty Income Logo" class="w-full h-full object-contain" data-alt="A minimalist, abstract architectural logo representing a real estate trust, similar to Realty Income. Clean geometric lines suggesting a building or house, rendered in deep primary blue on a pristine white background. Professional, high-end financial visual identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLmJFaYEHHxBSu3ryKrdHFJJvkG2xEWGQcrV1gtuwvyd5YKdpI3isbCYw_Is7hzewaULUOtzMrxjgFNT3DUeselzi2SSFVQrvXI1fWdb8VKERNeQG5ZWq4v9akwsn5qYsFLVlumJx-Qf6qW79SCybAmpj_kQ2wfvYJBHw7hpyAXIAtWQGPaKCp0Jl75CtTj71qHeWWbGK7ghaVvza2Hc_hZYhSK9rqTfdoH4Tz1KT5ApQB_cCzfBD26g"/>
+</div>
+<div class="flex flex-col">
+<span class="font-headline font-bold text-lg text-on-surface">Realty Income</span>
+<span class="font-body text-sm text-on-surface-variant">O • Mar 15</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-headline font-bold text-lg text-on-surface">$45.20</span>
+<span class="font-label text-xs font-medium text-primary bg-primary-container/30 px-2 py-0.5 rounded-full mt-1">Pending</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container-lowest/80 backdrop-blur-xl shadow-sm">
+<!-- Portfolio (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-secondary-container px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">account_balance_wallet</span>
+<span class="font-label text-xs tracking-wider uppercase">Portfolio</span>
+</button>
+<!-- Daily (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-secondary-container px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">grid_view</span>
+<span class="font-label text-xs tracking-wider uppercase">Daily</span>
+</button>
+<!-- What-If (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-secondary-container px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">auto_awesome</span>
+<span class="font-label text-xs tracking-wider uppercase">What-If</span>
+</button>
+<!-- Analysis (Active - Semantic Match for "통합 분석 리포트") -->
+<button class="flex flex-col items-center justify-center bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-full px-5 py-2 scale-90 transition-transform duration-150 shadow-md">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="font-label text-xs tracking-wider uppercase font-bold">Analysis</span>
+</button>
+<!-- Settings (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-secondary-container px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label text-xs tracking-wider uppercase">Settings</span>
+</button>
+</nav>
+</body></html>

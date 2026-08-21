@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stock Detail - Alexandria</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Serif:wght@400;600;700&amp;family=Public+Sans:wght@500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-on-surface": "#f2f0f1",
+                    "primary-container": "#3366cc",
+                    "on-secondary-fixed-variant": "#42474b",
+                    "inverse-primary": "#b1c5ff",
+                    "surface-container-high": "#e9e8e9",
+                    "primary": "#094cb2",
+                    "secondary-container": "#dfe3e8",
+                    "on-secondary": "#ffffff",
+                    "surface-container": "#efedee",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed": "#001946",
+                    "surface-dim": "#dbdadb",
+                    "on-tertiary-fixed": "#211b00",
+                    "surface-tint": "#2259bf",
+                    "inverse-surface": "#303031",
+                    "surface-variant": "#e3e2e3",
+                    "on-secondary-fixed": "#171c20",
+                    "outline": "#737784",
+                    "on-primary-fixed-variant": "#00419d",
+                    "tertiary-container": "#bfab49",
+                    "on-primary-container": "#e7ebff",
+                    "surface-container-lowest": "#ffffff",
+                    "error": "#ba1a1a",
+                    "on-tertiary-container": "#4a3f00",
+                    "primary-fixed": "#d9e2ff",
+                    "on-surface-variant": "#434653",
+                    "on-error-container": "#93000a",
+                    "on-error": "#ffffff",
+                    "surface": "#faf9fa",
+                    "primary-fixed-dim": "#b1c5ff",
+                    "on-background": "#1b1c1d",
+                    "surface-bright": "#faf9fa",
+                    "on-surface": "#1b1c1d",
+                    "surface-container-highest": "#e3e2e3",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#524600",
+                    "tertiary-fixed-dim": "#dcc661",
+                    "surface-container-low": "#f5f3f4",
+                    "on-secondary-container": "#606569",
+                    "background": "#faf9fa",
+                    "tertiary": "#6d5e00",
+                    "secondary-fixed": "#dfe3e8",
+                    "outline-variant": "#c3c6d5",
+                    "secondary-fixed-dim": "#c2c7cc",
+                    "secondary": "#5a5f63",
+                    "tertiary-fixed": "#f9e37a",
+                    "on-tertiary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Noto Serif"],
+                    "display": ["Noto Serif"],
+                    "body": ["Inter"],
+                    "label": ["Public Sans"]
+            }
+          }
+        }
+      }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen pb-32">
+<!-- TopAppBar Shell -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 py-4 bg-surface-container-lowest dark:bg-surface-dim flat no shadows transition-all duration-300">
+<button class="text-primary dark:text-inverse-primary hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline text-2xl leading-tight dark:text-on-surface font-bold text-primary dark:text-primary-fixed-dim">Alexandria</h1>
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant overflow-hidden">
+<img alt="User Avatar" class="object-cover w-full h-full" data-alt="A refined, minimalist professional portrait photograph of a confident individual, set against a pristine white studio backdrop. The lighting is soft and high-key, illuminating the subject evenly to create a modern, approachable yet authoritative tone suitable for a premium finance platform. The color palette focuses on neutral tones with subtle cool gray undertones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfCEg7fGKeV9MYZXYG3oM0kLup78Mk8eq3Yo3F0G2JRVvVWtFhp3jsETFfRDiG6kQmbPjFIqiCGiwDUdEWhxFVoSDuZvNWdOiE60zCm8odfOOq_HzNDYB2iHAs-3w-rkTgh4SZur1FTT0UdrhGxKJkCqKHQVSKcObMZC7PIUDGlYrF36-HrjEy2mWNbcR_UXsMjinFttnEuKGaBxR1rUHaKqMOBPdxz-pX4rTwOP6A3gV29nZz7yov3A"/>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="pt-24 px-4 md:px-8 max-w-4xl mx-auto space-y-12">
+<!-- Header Section -->
+<section class="flex flex-col items-center text-center space-y-4">
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-surface-container-highest rounded-full">
+<span class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Technology</span>
+</div>
+<h2 class="font-headline text-5xl md:text-6xl text-on-surface tracking-tight">Apple <span class="text-outline text-3xl md:text-4xl align-middle font-normal">(AAPL)</span></h2>
+<div class="flex flex-col items-center gap-1 mt-6">
+<div class="text-4xl md:text-5xl font-headline text-on-surface">$192.42</div>
+<div class="text-lg font-body text-primary font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-xl" data-icon="trending_up">trending_up</span>
+                    +1.25% (+$2.38)
+                </div>
+</div>
+<!-- Currency Toggle -->
+<div class="inline-flex mt-8 bg-surface-container p-1 rounded-full border border-outline-variant/20">
+<button class="px-6 py-2 rounded-full bg-surface-container-lowest shadow-sm text-primary font-label text-sm font-semibold transition-all">USD</button>
+<button class="px-6 py-2 rounded-full text-on-surface-variant font-label text-sm hover:text-on-surface transition-all">KRW</button>
+</div>
+</section>
+<!-- Summary Metrics -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-1 mt-12 bg-surface-container-lowest rounded-xl overflow-hidden p-6 relative">
+<!-- Ghost border representation -->
+<div class="absolute inset-0 border border-outline-variant opacity-15 rounded-xl pointer-events-none"></div>
+<div class="p-6 flex flex-col justify-center border-b md:border-b-0 md:border-r border-surface-variant last:border-0">
+<h3 class="font-label text-xs uppercase tracking-wider text-on-surface-variant mb-2">Total Value</h3>
+<div class="font-headline text-3xl text-on-surface">$25,400.00</div>
+</div>
+<div class="p-6 flex flex-col justify-center border-b md:border-b-0 md:border-r border-surface-variant last:border-0">
+<h3 class="font-label text-xs uppercase tracking-wider text-on-surface-variant mb-2">Principal</h3>
+<div class="font-headline text-2xl text-on-surface-variant">$20,000.00</div>
+</div>
+<div class="p-6 flex flex-col justify-center">
+<h3 class="font-label text-xs uppercase tracking-wider text-on-surface-variant mb-2">Total Return</h3>
+<div class="font-headline text-3xl text-primary">+27.0%</div>
+</div>
+</section>
+<!-- Realized Gains Banner -->
+<section class="bg-surface-container rounded-lg p-6 flex items-center justify-between relative overflow-hidden group hover:bg-surface-container-high transition-colors">
+<div class="absolute inset-0 border border-outline-variant opacity-15 rounded-lg pointer-events-none"></div>
+<div class="flex items-center gap-4 relative z-10">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/30 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+</div>
+<div>
+<div class="font-label text-xs uppercase tracking-wider text-on-surface-variant">Realized Profit</div>
+<div class="font-body text-lg font-medium text-on-surface">Cumulative Realized Gains</div>
+</div>
+</div>
+<div class="font-headline text-2xl text-tertiary relative z-10">$3,200.00</div>
+</section>
+<!-- Content Tabs -->
+<section class="space-y-8">
+<div class="flex justify-center border-b border-surface-variant gap-8">
+<button class="pb-4 font-label text-sm uppercase tracking-wider text-primary border-b-2 border-primary transition-all">Assets</button>
+<button class="pb-4 font-label text-sm uppercase tracking-wider text-on-surface-variant hover:text-on-surface transition-all">Transactions</button>
+</div>
+<!-- Assets List -->
+<div class="space-y-4">
+<!-- Brokerage 1 -->
+<div class="flex items-center justify-between p-5 bg-surface-container-lowest rounded-lg hover:bg-surface-container-high transition-colors relative group">
+<div class="absolute inset-0 border border-outline-variant opacity-15 rounded-lg pointer-events-none"></div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container rounded-lg flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+</div>
+<div>
+<h4 class="font-body font-medium text-lg text-on-surface">Fidelity</h4>
+<p class="font-body text-sm text-on-surface-variant">Avg Price: $180.00</p>
+</div>
+</div>
+<div class="text-right">
+<div class="font-headline text-xl text-on-surface">50 Shares</div>
+<div class="font-body text-sm text-primary">+6.90%</div>
+</div>
+</div>
+<!-- Brokerage 2 -->
+<div class="flex items-center justify-between p-5 bg-surface-container-lowest rounded-lg hover:bg-surface-container-high transition-colors relative group">
+<div class="absolute inset-0 border border-outline-variant opacity-15 rounded-lg pointer-events-none"></div>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container rounded-lg flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+</div>
+<div>
+<h4 class="font-body font-medium text-lg text-on-surface">Kakao Pay Sec</h4>
+<p class="font-body text-sm text-on-surface-variant">Avg Price: $185.00</p>
+</div>
+</div>
+<div class="text-right">
+<div class="font-headline text-xl text-on-surface">30 Shares</div>
+<div class="font-body text-sm text-primary">+4.01%</div>
+</div>
+</div>
+<!-- Add Asset Button -->
+<button class="w-full py-5 border border-dashed border-outline-variant/40 rounded-lg text-on-surface-variant font-label text-sm uppercase tracking-widest hover:bg-surface-container hover:text-on-surface transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+                    Manual Asset Entry
+                </button>
+</div>
+</section>
+</main>
+<!-- Floating Action Area (Buy/Sell) -->
+<div class="fixed bottom-0 left-0 w-full z-40 bg-gradient-to-t from-surface to-transparent pt-12 pb-6 px-4 md:px-8 pointer-events-none flex justify-center">
+<div class="flex gap-4 pointer-events-auto shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] rounded-full bg-surface-container-lowest/80 backdrop-blur-xl p-2 border border-outline-variant/20">
+<button class="px-8 py-3 rounded-full bg-surface-container-high text-on-surface font-label text-sm uppercase tracking-wider hover:bg-surface-variant transition-colors flex items-center gap-2">
+                Sell
+            </button>
+<button class="px-10 py-3 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-label text-sm uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity flex items-center gap-2">
+                Buy
+            </button>
+</div>
+</div>
+</body></html>

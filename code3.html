@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>What-If Simulation - Alexandria</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Serif:wght@400;700&amp;family=Public+Sans:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#f2f0f1",
+                        "primary-container": "#3366cc",
+                        "on-secondary-fixed-variant": "#42474b",
+                        "inverse-primary": "#b1c5ff",
+                        "surface-container-high": "#e9e8e9",
+                        "primary": "#094cb2",
+                        "secondary-container": "#dfe3e8",
+                        "on-secondary": "#ffffff",
+                        "surface-container": "#efedee",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#001946",
+                        "surface-dim": "#dbdadb",
+                        "on-tertiary-fixed": "#211b00",
+                        "surface-tint": "#2259bf",
+                        "inverse-surface": "#303031",
+                        "surface-variant": "#e3e2e3",
+                        "on-secondary-fixed": "#171c20",
+                        "outline": "#737784",
+                        "on-primary-fixed-variant": "#00419d",
+                        "tertiary-container": "#bfab49",
+                        "on-primary-container": "#e7ebff",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-container": "#4a3f00",
+                        "primary-fixed": "#d9e2ff",
+                        "on-surface-variant": "#434653",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "surface": "#faf9fa",
+                        "primary-fixed-dim": "#b1c5ff",
+                        "on-background": "#1b1c1d",
+                        "surface-bright": "#faf9fa",
+                        "on-surface": "#1b1c1d",
+                        "surface-container-highest": "#e3e2e3",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#524600",
+                        "tertiary-fixed-dim": "#dcc661",
+                        "surface-container-low": "#f5f3f4",
+                        "on-secondary-container": "#606569",
+                        "background": "#faf9fa",
+                        "tertiary": "#6d5e00",
+                        "secondary-fixed": "#dfe3e8",
+                        "outline-variant": "#c3c6d5",
+                        "secondary-fixed-dim": "#c2c7cc",
+                        "secondary": "#5a5f63",
+                        "tertiary-fixed": "#f9e37a",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Noto Serif", "serif"],
+                        "display": ["Noto Serif", "serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Public Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.surface-container-lowest');
+            color: theme('colors.on-surface');
+            -webkit-font-smoothing: antialiased;
+        }
+        .ghost-border {
+            border: 1px solid rgba(195, 198, 213, 0.15); /* outline-variant 15% */
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="font-body min-h-screen flex flex-col pb-24 md:pb-0 pt-20">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 py-4 bg-surface-container-lowest dark:bg-surface-dim transition-all duration-300">
+<div class="flex items-center gap-4">
+<button class="text-primary dark:text-inverse-primary hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+<h1 class="font-headline font-bold text-primary dark:text-primary-fixed-dim text-2xl leading-tight">Alexandria</h1>
+</div>
+<div class="flex items-center gap-4 hidden md:flex">
+<nav class="flex items-center gap-6">
+<a class="text-on-surface-variant dark:text-outline font-label text-sm hover:text-primary transition-colors" href="#">Portfolio</a>
+<a class="text-on-surface-variant dark:text-outline font-label text-sm hover:text-primary transition-colors" href="#">Daily</a>
+<a class="text-primary dark:text-inverse-primary font-label text-sm font-semibold" href="#">What-If</a>
+<a class="text-on-surface-variant dark:text-outline font-label text-sm hover:text-primary transition-colors" href="#">Analysis</a>
+<a class="text-on-surface-variant dark:text-outline font-label text-sm hover:text-primary transition-colors" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden ghost-border">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="A sophisticated, high-end corporate headshot of a financial professional. The image should be black and white, exuding authority and trust, set against a pristine, minimalist white background. The lighting should be soft, studio-quality, emphasizing clarity and a premium editorial aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA85UWQrRGN-6crDtwy6tV4SUy_ocoXuAVRDrmkJ6XGq3dp5LCNzHpvJryQyd2aQFD2PcicmzGx_6kVGYu6xG8Iu1oB3AA5vw5qGPQsNQKYyw8KlJB3LrBv4PjwAfswyXFEiHjZuBLuicNEfNgceKgc3FsZmI_org4JBPl_PB6rcUEMVwUurVXpcGaf24e6vxmMSyLp1quSq90LHh8HVB9ozE2H4XFCf7-KxZECsXfSKYMJzUM00XWOkA"/>
+</div>
+</div>
+</header>
+<main class="flex-grow container mx-auto px-6 max-w-4xl flex flex-col gap-12 mt-8">
+<!-- Header & Toggle -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="font-headline text-4xl md:text-5xl text-on-surface leading-tight mb-2">The Cost of Departure</h2>
+<p class="font-body text-on-surface-variant text-lg max-w-2xl">A retrospective analysis of divested assets and the compounding weight of alternate decisions.</p>
+</div>
+<div class="flex bg-surface-container-low rounded-full p-1 self-start md:self-auto ghost-border">
+<button class="px-6 py-2 rounded-full font-label text-sm bg-surface-container-lowest text-primary shadow-sm transition-all">과거 매도 종목</button>
+<button class="px-6 py-2 rounded-full font-label text-sm text-on-surface-variant hover:text-primary transition-all">가상 보유</button>
+</div>
+</section>
+<!-- Opportunity Cost Summary Card -->
+<section class="bg-surface-container-low rounded-xl p-8 md:p-12 relative overflow-hidden ghost-border group">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none"></div>
+<div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+<div class="flex flex-col gap-2">
+<span class="font-label text-tertiary uppercase tracking-widest text-xs font-semibold">Opportunity Cost</span>
+<h3 class="font-headline text-3xl md:text-4xl text-on-surface">"만약 팔지 않았다면?"</h3>
+<p class="font-body text-on-surface-variant text-sm mt-2 max-w-md">An aggregation of potential capital appreciation foregone across all historically liquidated positions.</p>
+</div>
+<div class="text-left md:text-right flex flex-col">
+<span class="font-label text-on-surface-variant text-sm mb-1">총 평가금 차액</span>
+<span class="font-headline text-5xl md:text-6xl text-primary font-bold tracking-tight">+$4,500</span>
+<span class="font-body text-tertiary text-sm mt-2 flex items-center gap-1 md:justify-end">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+                        Foregone Alpha
+                    </span>
+</div>
+</div>
+</section>
+<!-- Divested Assets List -->
+<section class="flex flex-col gap-6">
+<h4 class="font-label text-on-surface-variant uppercase tracking-widest text-sm font-semibold border-b border-surface-container-high pb-2">Historical Divestments</h4>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Item 1 -->
+<article class="bg-surface-container-lowest rounded-xl p-6 flex flex-col gap-6 hover:bg-surface-container transition-colors duration-300 ghost-border cursor-pointer group">
+<div class="flex justify-between items-start">
+<div>
+<h5 class="font-headline text-xl text-on-surface font-bold">NVIDIA</h5>
+<span class="font-label text-on-surface-variant text-xs mt-1 block">매도일: 2023.10</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-auto">
+<div class="flex flex-col">
+<span class="font-label text-on-surface-variant text-xs uppercase mb-1">매도가</span>
+<span class="font-body text-on-surface text-lg">$450.00</span>
+</div>
+<div class="flex flex-col text-right">
+<span class="font-label text-on-surface-variant text-xs uppercase mb-1">현재가</span>
+<span class="font-body text-on-surface text-lg font-semibold">$900.00</span>
+</div>
+</div>
+<div class="flex justify-between items-center pt-4 border-t border-surface-container-high">
+<span class="font-label text-sm text-on-surface">차액 비율</span>
+<span class="font-body text-primary font-bold text-lg bg-primary-container/20 px-3 py-1 rounded-full">+100%</span>
+</div>
+</article>
+<!-- Item 2 -->
+<article class="bg-surface-container-lowest rounded-xl p-6 flex flex-col gap-6 hover:bg-surface-container transition-colors duration-300 ghost-border cursor-pointer group">
+<div class="flex justify-between items-start">
+<div>
+<h5 class="font-headline text-xl text-on-surface font-bold">Apple Inc.</h5>
+<span class="font-label text-on-surface-variant text-xs mt-1 block">매도일: 2023.01</span>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:bg-primary group-hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-auto">
+<div class="flex flex-col">
+<span class="font-label text-on-surface-variant text-xs uppercase mb-1">매도가</span>
+<span class="font-body text-on-surface text-lg">$145.00</span>
+</div>
+<div class="flex flex-col text-right">
+<span class="font-label text-on-surface-variant text-xs uppercase mb-1">현재가</span>
+<span class="font-body text-on-surface text-lg font-semibold">$185.00</span>
+</div>
+</div>
+<div class="flex justify-between items-center pt-4 border-t border-surface-container-high">
+<span class="font-label text-sm text-on-surface">차액 비율</span>
+<span class="font-body text-primary font-bold text-lg bg-primary-container/20 px-3 py-1 rounded-full">+27.5%</span>
+</div>
+</article>
+</div>
+</section>
+<!-- Spacing for FAB on mobile -->
+<div class="h-24 md:h-12"></div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-24 md:bottom-12 right-6 bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-full px-6 py-4 flex items-center gap-3 shadow-lg hover:shadow-xl hover:scale-105 transition-all z-40">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+<span class="font-label font-semibold tracking-wide">가상 종목 추가</span>
+</button>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container-lowest/80 dark:bg-surface-dim/80 backdrop-blur-xl shadow-sm dark:shadow-none md:hidden transition-all">
+<button class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1 text-xl" style="font-variation-settings: 'FILL' 0;">account_balance_wallet</span>
+<span class="font-label text-[10px] tracking-wider uppercase">Portfolio</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1 text-xl" style="font-variation-settings: 'FILL' 0;">grid_view</span>
+<span class="font-label text-[10px] tracking-wider uppercase">Daily</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-full px-5 py-2 scale-90 transition-transform duration-150 shadow-md">
+<span class="material-symbols-outlined mb-1 text-xl" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="font-label text-[10px] tracking-wider uppercase font-semibold">What-If</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1 text-xl" style="font-variation-settings: 'FILL' 0;">analytics</span>
+<span class="font-label text-[10px] tracking-wider uppercase">Analysis</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined mb-1 text-xl" style="font-variation-settings: 'FILL' 0;">settings</span>
+<span class="font-label text-[10px] tracking-wider uppercase">Settings</span>
+</button>
+</nav>
+</body></html>

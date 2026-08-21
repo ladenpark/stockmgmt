@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Alexandria - Daily P&amp;L</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-on-surface": "#f2f0f1",
+                      "primary-container": "#3366cc",
+                      "on-secondary-fixed-variant": "#42474b",
+                      "inverse-primary": "#b1c5ff",
+                      "surface-container-high": "#e9e8e9",
+                      "primary": "#094cb2",
+                      "secondary-container": "#dfe3e8",
+                      "on-secondary": "#ffffff",
+                      "surface-container": "#efedee",
+                      "on-primary": "#ffffff",
+                      "on-primary-fixed": "#001946",
+                      "surface-dim": "#dbdadb",
+                      "on-tertiary-fixed": "#211b00",
+                      "surface-tint": "#2259bf",
+                      "inverse-surface": "#303031",
+                      "surface-variant": "#e3e2e3",
+                      "on-secondary-fixed": "#171c20",
+                      "outline": "#737784",
+                      "on-primary-fixed-variant": "#00419d",
+                      "tertiary-container": "#bfab49",
+                      "on-primary-container": "#e7ebff",
+                      "surface-container-lowest": "#ffffff",
+                      "error": "#ba1a1a",
+                      "on-tertiary-container": "#4a3f00",
+                      "primary-fixed": "#d9e2ff",
+                      "on-surface-variant": "#434653",
+                      "on-error-container": "#93000a",
+                      "on-error": "#ffffff",
+                      "surface": "#faf9fa",
+                      "primary-fixed-dim": "#b1c5ff",
+                      "on-background": "#1b1c1d",
+                      "surface-bright": "#faf9fa",
+                      "on-surface": "#1b1c1d",
+                      "surface-container-highest": "#e3e2e3",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#524600",
+                      "tertiary-fixed-dim": "#dcc661",
+                      "surface-container-low": "#f5f3f4",
+                      "on-secondary-container": "#606569",
+                      "background": "#faf9fa",
+                      "tertiary": "#6d5e00",
+                      "secondary-fixed": "#dfe3e8",
+                      "outline-variant": "#c3c6d5",
+                      "secondary-fixed-dim": "#c2c7cc",
+                      "secondary": "#5a5f63",
+                      "tertiary-fixed": "#f9e37a",
+                      "on-tertiary": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Noto Serif", "serif"
+                      ],
+                      "display": [
+                              "Noto Serif", "serif"
+                      ],
+                      "body": [
+                              "Inter", "sans-serif"
+                      ],
+                      "label": [
+                              "Public Sans", "sans-serif"
+                      ]
+              },
+              "fontSize": {}
+            },
+          },
+        }
+    </script>
+<style>
+        /* Custom Utilities to enforce No-Line Rule natively where needed */
+        .ghost-outline {
+            box-shadow: inset 0 0 0 1px rgba(195, 198, 213, 0.15); /* outline-variant at 15% */
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body antialiased min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 py-4 bg-surface-container-lowest dark:bg-surface-dim flat no shadows">
+<div class="flex items-center gap-4">
+<button class="md:hidden text-primary dark:text-inverse-primary hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors rounded-full p-2 flex items-center justify-center">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline font-bold text-primary dark:text-primary-fixed-dim text-2xl leading-tight">Alexandria</h1>
+</div>
+<!-- Desktop Navigation Cluster (Hidden on Mobile) -->
+<nav class="hidden md:flex items-center gap-8">
+<a class="font-label text-sm uppercase tracking-wider text-on-surface-variant dark:text-outline hover:text-primary transition-colors" href="#">Portfolio</a>
+<a class="font-label text-sm uppercase tracking-wider text-primary dark:text-inverse-primary font-bold" href="#">Daily</a>
+<a class="font-label text-sm uppercase tracking-wider text-on-surface-variant dark:text-outline hover:text-primary transition-colors" href="#">What-If</a>
+<a class="font-label text-sm uppercase tracking-wider text-on-surface-variant dark:text-outline hover:text-primary transition-colors" href="#">Analysis</a>
+</nav>
+<div class="flex items-center">
+<button class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden ghost-outline flex items-center justify-center hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">person</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-24 pb-28 md:pb-12 px-4 md:px-8 max-w-7xl mx-auto w-full">
+<!-- Page Header & Controllers -->
+<div class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="font-headline text-4xl md:text-5xl text-on-surface mb-3 tracking-tight">Daily Performance</h2>
+<p class="font-body text-on-surface-variant max-w-2xl text-lg">A detailed chronological breakdown of aggregated asset valuations and daily profit/loss margins.</p>
+</div>
+<!-- Controllers -->
+<div class="flex flex-wrap items-center gap-3 font-label text-sm">
+<!-- Month Selector -->
+<div class="flex items-center bg-surface-container-lowest rounded-full px-4 py-2 ghost-outline cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[20px] mr-2 text-on-surface-variant">calendar_today</span>
+<span class="text-on-surface font-medium mr-1">May</span>
+<span class="text-on-surface-variant">2024</span>
+<span class="material-symbols-outlined text-[18px] ml-2 text-on-surface-variant">arrow_drop_down</span>
+</div>
+<!-- Sort Selector -->
+<div class="flex items-center bg-surface-container-lowest rounded-full px-4 py-2 ghost-outline cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[20px] mr-2 text-on-surface-variant">sort</span>
+<span class="text-on-surface font-medium mr-1">Date</span>
+<span class="text-on-surface-variant">Desc</span>
+</div>
+<!-- Mode Selector -->
+<div class="flex items-center bg-surface-container-lowest rounded-full px-4 py-2 ghost-outline cursor-pointer hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[20px] mr-2 text-primary">layers</span>
+<span class="text-on-surface font-medium">Aggregated</span>
+</div>
+</div>
+</div>
+<!-- Data Grid Container -->
+<div class="bg-surface-container-lowest rounded-xl ghost-outline overflow-hidden">
+<!-- Mobile Horizontal Scroll Wrapper -->
+<div class="w-full overflow-x-auto hide-scrollbar">
+<table class="w-full text-left border-collapse min-w-[800px]">
+<thead class="bg-surface-container-low">
+<tr>
+<th class="font-label text-xs uppercase tracking-widest text-on-surface-variant py-5 px-6 font-semibold w-24">Date</th>
+<th class="font-label text-xs uppercase tracking-widest text-on-surface-variant py-5 px-6 font-semibold text-right">Total Assets</th>
+<th class="font-label text-xs uppercase tracking-widest text-on-surface-variant py-5 px-6 font-semibold text-right">Daily Change ($)</th>
+<th class="font-label text-xs uppercase tracking-widest text-on-surface-variant py-5 px-6 font-semibold text-right">Return (%)</th>
+<th class="font-label text-xs uppercase tracking-widest text-on-surface-variant py-5 px-6 font-semibold w-1/3">Asset Summary</th>
+</tr>
+</thead>
+<tbody class="font-body text-sm text-on-surface">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="py-5 px-6 font-medium">05.24</td>
+<td class="py-5 px-6 text-right tabular-nums">$124,500.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-primary font-medium">+$1,200.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-primary font-medium bg-primary-fixed/30 rounded-lg inline-block my-3 mx-2 float-right px-3 py-1">+0.97%</td>
+<td class="py-5 px-6 text-on-surface-variant">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 rounded-md text-xs mr-2"><span class="text-primary material-symbols-outlined text-[14px]">trending_up</span> AAPL</span>
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 rounded-md text-xs"><span class="text-primary material-symbols-outlined text-[14px]">trending_up</span> TSLA</span>
+</td>
+</tr>
+<!-- Divider logic (No lines, subtle bg shift) -->
+<tr class="h-1 bg-background"><td colspan="5"></td></tr>
+<!-- Row 2 -->
+<tr class="bg-surface-container-lowest hover:bg-surface-container transition-colors group">
+<td class="py-5 px-6 font-medium">05.23</td>
+<td class="py-5 px-6 text-right tabular-nums">$123,300.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-error font-medium">-$450.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-error font-medium bg-error-container/50 rounded-lg inline-block my-3 mx-2 float-right px-3 py-1">-0.36%</td>
+<td class="py-5 px-6 text-on-surface-variant">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 rounded-md text-xs"><span class="text-error material-symbols-outlined text-[14px]">trending_down</span> MSFT</span>
+</td>
+</tr>
+<tr class="h-1 bg-background"><td colspan="5"></td></tr>
+<!-- Row 3 -->
+<tr class="bg-surface-container-lowest hover:bg-surface-container transition-colors group">
+<td class="py-5 px-6 font-medium">05.22</td>
+<td class="py-5 px-6 text-right tabular-nums">$123,750.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-primary font-medium">+$800.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-primary font-medium bg-primary-fixed/30 rounded-lg inline-block my-3 mx-2 float-right px-3 py-1">+0.65%</td>
+<td class="py-5 px-6 text-on-surface-variant">
+<span class="inline-flex items-center gap-1 bg-surface-container px-2 py-1 rounded-md text-xs"><span class="text-primary material-symbols-outlined text-[14px]">rocket_launch</span> NVDA rally</span>
+</td>
+</tr>
+<tr class="h-1 bg-background"><td colspan="5"></td></tr>
+<!-- Row 4 -->
+<tr class="bg-surface-container-lowest hover:bg-surface-container transition-colors group">
+<td class="py-5 px-6 font-medium">05.21</td>
+<td class="py-5 px-6 text-right tabular-nums">$122,950.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-primary font-medium">+$150.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-primary font-medium bg-primary-fixed/30 rounded-lg inline-block my-3 mx-2 float-right px-3 py-1">+0.12%</td>
+<td class="py-5 px-6 text-on-surface-variant">
+<span class="inline-flex items-center gap-1 text-xs"><span class="text-outline material-symbols-outlined text-[14px]">horizontal_rule</span> Stable</span>
+</td>
+</tr>
+<tr class="h-1 bg-background"><td colspan="5"></td></tr>
+<!-- Row 5 -->
+<tr class="bg-surface-container-lowest hover:bg-surface-container transition-colors group">
+<td class="py-5 px-6 font-medium">05.20</td>
+<td class="py-5 px-6 text-right tabular-nums">$122,800.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-error font-medium">-$1,100.00</td>
+<td class="py-5 px-6 text-right tabular-nums text-error font-medium bg-error-container/50 rounded-lg inline-block my-3 mx-2 float-right px-3 py-1">-0.88%</td>
+<td class="py-5 px-6 text-on-surface-variant">
+                                Market correction, Tech sector <span class="text-error font-medium">down</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination / Footer (Optional aesthetic touch) -->
+<div class="bg-surface-container-low px-6 py-4 flex items-center justify-between font-label text-xs uppercase tracking-wider text-on-surface-variant">
+<span>Showing 5 of 21 days</span>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors disabled:opacity-50">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container-lowest/80 dark:bg-surface-dim/80 backdrop-blur-xl shadow-sm dark:shadow-none font-label text-xs tracking-wider uppercase">
+<!-- Inactive: Portfolio -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined mb-1">account_balance_wallet</span>
+<span class="scale-[0.85]">Portfolio</span>
+</a>
+<!-- Active: Daily -->
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-full px-5 py-2 scale-90 transition-transform duration-150 Active: scale-90 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<span class="scale-[0.85] font-semibold text-white">Daily</span>
+</a>
+<!-- Inactive: What-If -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined mb-1">auto_awesome</span>
+<span class="scale-[0.85]">What-If</span>
+</a>
+<!-- Inactive: Analysis -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined mb-1">analytics</span>
+<span class="scale-[0.85]">Analysis</span>
+</a>
+<!-- Inactive: Settings -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant px-4 py-2 opacity-70 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined mb-1">settings</span>
+<span class="scale-[0.85]">Settings</span>
+</a>
+</nav>
+</body></html>
