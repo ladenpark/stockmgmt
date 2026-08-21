@@ -296,32 +296,20 @@ function switchTab(tabId) {
     }
 
     // Update bottom nav active state
-    document.querySelectorAll('.bottom-nav-item').forEach(el => {
+    document.querySelectorAll('.nav-tab-btn').forEach(el => {
         const target = el.getAttribute('data-tab');
         if (target === tabId) {
-            el.classList.add('bg-gradient-to-br', 'from-primary', 'to-primary-container', 'text-on-primary', 'shadow-md');
-            el.classList.remove('text-on-secondary-container', 'opacity-70');
-            el.querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 1";
+            el.classList.add('active');
+            const icon = el.querySelector('.material-symbols-outlined');
+            if (icon) icon.style.fontVariationSettings = "'FILL' 1";
         } else {
-            el.classList.remove('bg-gradient-to-br', 'from-primary', 'to-primary-container', 'text-on-primary', 'shadow-md');
-            el.classList.add('text-on-secondary-container', 'opacity-70');
-            el.querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 0";
+            el.classList.remove('active');
+            const icon = el.querySelector('.material-symbols-outlined');
+            if (icon) icon.style.fontVariationSettings = "'FILL' 0";
         }
     });
 
-    // Update desktop nav active state
-    document.querySelectorAll('.desktop-nav-item').forEach(el => {
-        const target = el.getAttribute('data-tab');
-        if (target === tabId) {
-            el.classList.add('text-primary', 'font-bold');
-            el.classList.remove('text-on-surface-variant');
-        } else {
-            el.classList.remove('text-primary', 'font-bold');
-            el.classList.add('text-on-surface-variant');
-        }
-    });
-
-    // Show active tab view
+    // Show active tab view only (strict isolation)
     document.querySelectorAll('.tab-page').forEach(page => {
         if (page.id === tabId) {
             page.classList.add('active');
@@ -329,6 +317,19 @@ function switchTab(tabId) {
             page.classList.remove('active');
         }
     });
+
+    // Update App Header Title dynamically
+    const tabTitles = {
+        'tab-home': '내 자산 포트폴리오',
+        'tab-daily': '데일리 손익',
+        'tab-whatif': 'What-If 시뮬레이션',
+        'tab-analysis': '통합 분석 리포트',
+        'tab-settings': '설정 & 데이터 허브'
+    };
+    const headerTitle = document.getElementById('app-header-title');
+    if (headerTitle && tabTitles[tabId]) {
+        headerTitle.textContent = tabTitles[tabId];
+    }
 
     // Rerender subviews if applicable
     if (tabId === 'tab-analysis') {
@@ -341,7 +342,36 @@ function switchTab(tabId) {
         renderPortfolioSummary();
     }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Scroll to top
+    const appContainer = document.getElementById('app-container');
+    if (appContainer) appContainer.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+// PC Desktop Device View Switcher
+function toggleDeviceViewMode(mode) {
+    const container = document.getElementById('app-container');
+    const btnPhone = document.getElementById('btn-view-phone');
+    const btnWide = document.getElementById('btn-view-wide');
+    if (!container) return;
+    
+    if (mode === 'wide') {
+        container.classList.add('wide-mode');
+        if (btnWide) {
+            btnWide.className = "px-3 py-1.5 rounded-full bg-primary text-white text-xs font-bold shadow-xs";
+        }
+        if (btnPhone) {
+            btnPhone.className = "px-3 py-1.5 rounded-full text-slate-300 hover:text-white text-xs font-medium";
+        }
+    } else {
+        container.classList.remove('wide-mode');
+        if (btnPhone) {
+            btnPhone.className = "px-3 py-1.5 rounded-full bg-primary text-white text-xs font-bold shadow-xs";
+        }
+        if (btnWide) {
+            btnWide.className = "px-3 py-1.5 rounded-full text-slate-300 hover:text-white text-xs font-medium";
+        }
+    }
 }
 
 // Currency Toggle (KRW <-> USD)
@@ -351,16 +381,16 @@ function toggleCurrency(newCurr = null) {
     // Update currency toggle buttons
     document.querySelectorAll('.currency-toggle-krw').forEach(btn => {
         if (state.currency === 'KRW') {
-            btn.className = "px-6 py-2 rounded-full bg-surface-container-lowest shadow-sm text-primary font-label text-sm font-semibold transition-all";
+            btn.className = "currency-toggle-krw px-2.5 py-1 rounded-full bg-surface-container-lowest shadow-xs text-primary font-label text-[11px] font-bold transition-all";
         } else {
-            btn.className = "px-6 py-2 rounded-full text-on-surface-variant font-label text-sm hover:text-on-surface transition-all";
+            btn.className = "currency-toggle-krw px-2.5 py-1 rounded-full text-on-surface-variant font-label text-[11px] font-bold hover:text-on-surface transition-all";
         }
     });
     document.querySelectorAll('.currency-toggle-usd').forEach(btn => {
         if (state.currency === 'USD') {
-            btn.className = "px-6 py-2 rounded-full bg-surface-container-lowest shadow-sm text-primary font-label text-sm font-semibold transition-all";
+            btn.className = "currency-toggle-usd px-2.5 py-1 rounded-full bg-surface-container-lowest shadow-xs text-primary font-label text-[11px] font-bold transition-all";
         } else {
-            btn.className = "px-6 py-2 rounded-full text-on-surface-variant font-label text-sm hover:text-on-surface transition-all";
+            btn.className = "currency-toggle-usd px-2.5 py-1 rounded-full text-on-surface-variant font-label text-[11px] font-bold hover:text-on-surface transition-all";
         }
     });
 
@@ -402,14 +432,14 @@ function renderPortfolioSummary() {
     if (elInvested) elInvested.textContent = formatMoney(totalInvestedUsd);
     if (elTotalReturn) {
         elTotalReturn.textContent = `${formatPercent(totalReturnPct)} (${formatMoney(totalReturnUsd)})`;
-        elTotalReturn.className = totalReturnPct >= 0 ? "font-body text-sm text-primary font-semibold flex items-center gap-1" : "font-body text-sm text-error font-semibold flex items-center gap-1";
+        elTotalReturn.className = totalReturnPct >= 0 ? "font-body text-xs font-bold text-primary flex items-center gap-0.5 mt-0.5" : "font-body text-xs font-bold text-error flex items-center gap-0.5 mt-0.5";
     }
     if (elTodayGain) {
         elTodayGain.textContent = `${formatMoney(todayGainUsd)} (${formatPercent(todayGainPct)})`;
-        elTodayGain.className = todayGainUsd >= 0 ? "text-primary font-medium" : "text-error font-medium";
+        elTodayGain.className = todayGainUsd >= 0 ? "text-primary font-semibold" : "text-error font-semibold";
     }
 
-    // Render Stock List Cards
+    // Render Stock List Cards (Mobile Optimized)
     const listContainer = document.getElementById('home-stock-list');
     if (listContainer) {
         listContainer.innerHTML = '';
@@ -420,38 +450,27 @@ function renderPortfolioSummary() {
             const isPositive = returnPct >= 0;
 
             const card = document.createElement('div');
-            card.className = "bg-surface-container-lowest rounded-2xl p-5 ghost-border card-hover cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4";
+            card.className = "bg-surface-container-lowest rounded-2xl p-3.5 ghost-border mobile-card cursor-pointer flex items-center justify-between gap-2.5";
             card.onclick = () => openStockDetail(stock.id);
 
             card.innerHTML = `
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary font-headline font-bold text-lg">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-primary font-headline font-bold text-sm shrink-0">
                         ${stock.ticker.slice(0, 2)}
                     </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h4 class="font-headline font-bold text-lg text-on-surface">${stock.name}</h4>
-                            <span class="font-label text-xs uppercase px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-medium">${stock.ticker}</span>
-                            <span class="font-label text-[11px] px-2 py-0.5 rounded-full ${stock.market === 'US' ? 'bg-primary-fixed/40 text-primary' : 'bg-tertiary-container/30 text-tertiary'} font-semibold">${stock.market === 'US' ? '미국' : '국내'}</span>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 truncate">
+                            <h4 class="font-headline font-bold text-sm text-on-surface truncate">${stock.name}</h4>
+                            <span class="font-label text-[10px] px-1.5 py-0.2 bg-surface-container rounded text-on-surface-variant font-medium">${stock.ticker}</span>
                         </div>
-                        <p class="font-body text-xs text-on-surface-variant mt-1">${stock.shares}주 보유 • 평단 ${formatMoney(stock.avgPriceUsd)}</p>
+                        <p class="font-body text-[11px] text-on-surface-variant mt-0.5 truncate">${stock.shares}주 • 평단 ${formatMoney(stock.avgPriceUsd)}</p>
                     </div>
                 </div>
-                <div class="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 pt-3 md:pt-0 border-surface-variant">
-                    <div>
-                        <div class="font-label text-xs text-on-surface-variant md:text-right">현재가</div>
-                        <div class="font-headline text-lg font-bold text-on-surface md:text-right">${formatMoney(stock.currentPriceUsd)}</div>
-                        <div class="text-xs ${stock.changePct >= 0 ? 'text-primary' : 'text-error'} font-medium md:text-right flex items-center md:justify-end gap-0.5">
-                            <span class="material-symbols-outlined text-xs">${stock.changePct >= 0 ? 'trending_up' : 'trending_down'}</span>
-                            ${formatPercent(stock.changePct)}
-                        </div>
-                    </div>
-                    <div class="text-right pl-4 border-l border-surface-variant">
-                        <div class="font-label text-xs text-on-surface-variant">평가금액</div>
-                        <div class="font-headline text-lg font-bold text-on-surface">${formatMoney(stockValUsd)}</div>
-                        <div class="font-body text-xs font-semibold ${isPositive ? 'text-primary' : 'text-error'}">
-                            ${formatPercent(returnPct)} (${formatMoney(stockValUsd - stockCostUsd)})
-                        </div>
+                <div class="text-right shrink-0">
+                    <div class="font-headline text-sm font-bold text-on-surface">${formatMoney(stockValUsd)}</div>
+                    <div class="font-body text-[11px] font-semibold ${isPositive ? 'text-primary' : 'text-error'} flex items-center justify-end gap-0.5 mt-0.5">
+                        <span class="material-symbols-outlined text-xs">${stock.changePct >= 0 ? 'trending_up' : 'trending_down'}</span>
+                        ${formatPercent(returnPct)}
                     </div>
                 </div>
             `;
@@ -783,18 +802,12 @@ function renderDailyPerformance() {
         const badgeBgClass = isPositive ? 'bg-primary-fixed/40 text-primary' : 'bg-error-container/50 text-error';
 
         tr.innerHTML = `
-            <td class="py-5 px-6 font-semibold text-on-surface">${row.date}</td>
-            <td class="py-5 px-6 text-right tabular-nums font-headline text-base text-on-surface">${formatMoney(row.totalUsd)}</td>
-            <td class="py-5 px-6 text-right tabular-nums ${colorClass} font-semibold">${formatMoney(row.diffUsd)}</td>
-            <td class="py-5 px-6 text-right tabular-nums">
-                <span class="inline-block px-3 py-1 rounded-lg text-xs font-bold ${badgeBgClass}">
+            <td class="py-3 px-3.5 font-semibold text-on-surface">${row.date}</td>
+            <td class="py-3 px-3 text-right tabular-nums font-headline text-xs font-bold text-on-surface">${formatMoney(row.totalUsd)}</td>
+            <td class="py-3 px-3 text-right tabular-nums ${colorClass} font-semibold">${formatMoney(row.diffUsd)}</td>
+            <td class="py-3 px-3.5 text-right tabular-nums">
+                <span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${badgeBgClass}">
                     ${formatPercent(row.diffPct)}
-                </span>
-            </td>
-            <td class="py-5 px-6 text-on-surface-variant font-body text-xs">
-                <span class="inline-flex items-center gap-1 bg-surface-container px-2.5 py-1 rounded-md">
-                    <span class="material-symbols-outlined text-xs ${colorClass}">${isPositive ? 'trending_up' : 'trending_down'}</span>
-                    ${row.summaryTag}
                 </span>
             </td>
         `;

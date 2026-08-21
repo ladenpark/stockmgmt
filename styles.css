@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Stock Management Web App - Alexandria Custom Styles
+   Stock Management Web App - Alexandria Mobile-First App Design Styles
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700;800&family=Noto+Serif+KR:wght@400;600;700&family=Public+Sans:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -8,60 +8,238 @@
     --primary: #094cb2;
     --primary-container: #3366cc;
     --primary-fixed: #d9e2ff;
-    --surface: #faf9fa;
+    --surface: #f7f8fa;
     --surface-dim: #dbdadb;
     --surface-container-lowest: #ffffff;
-    --surface-container-low: #f5f3f4;
-    --surface-container: #efedee;
-    --surface-container-high: #e9e8e9;
-    --surface-container-highest: #e3e2e3;
-    --on-surface: #1b1c1d;
-    --on-surface-variant: #434653;
-    --outline: #737784;
-    --outline-variant: #c3c6d5;
-    --error: #ba1a1a;
-    --error-container: #ffdad6;
-    --tertiary: #6d5e00;
-    --tertiary-container: #bfab49;
+    --surface-container-low: #f2f4f7;
+    --surface-container: #eaecf0;
+    --surface-container-high: #e0e2e7;
+    --surface-container-highest: #d5d8df;
+    --on-surface: #101828;
+    --on-surface-variant: #475467;
+    --outline: #98a2b3;
+    --outline-variant: #d0d5dd;
+    --error: #d92d20;
+    --error-container: #fee4e2;
+    --tertiary: #b54708;
+    --tertiary-container: #fef0c7;
     --font-headline: 'Noto Serif KR', 'Noto Serif', serif;
     --font-body: 'Pretendard', 'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-label: 'Public Sans', 'Noto Sans KR', sans-serif;
+    --app-max-width: 440px;
+}
+
+* {
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
 }
 
 body {
     font-family: var(--font-body);
-    background-color: var(--surface);
+    background-color: #0f172a; /* Sleek dark background for desktop canvas */
     color: var(--on-surface);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-.font-headline {
-    font-family: var(--font-headline);
+/* ==========================================================================
+   App Shell & Desktop Simulator Frame
+   ========================================================================== */
+#device-wrapper {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: radial-gradient(circle at 50% 20%, #1e293b 0%, #0f172a 100%);
 }
 
-.font-body {
-    font-family: var(--font-body);
+#app-container {
+    width: 100%;
+    max-width: var(--app-max-width);
+    min-height: 100vh;
+    background-color: var(--surface);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    overflow-x: hidden;
 }
 
-.font-label {
-    font-family: var(--font-label);
+/* Wide Mode (Toggleable on PC) */
+#app-container.wide-mode {
+    max-width: 768px;
+    border-radius: 28px;
+    min-height: 900px;
+    margin: 32px 0;
 }
 
-/* Custom ghost outline and borders */
+/* Phone Simulator Mode on PC */
+@media (min-width: 641px) {
+    #device-wrapper {
+        padding: 32px 16px;
+    }
+    #app-container:not(.wide-mode) {
+        border-radius: 44px;
+        min-height: 890px;
+        max-height: 92vh;
+        border: 8px solid #1e293b;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Mobile Screen Fullscreen */
+@media (max-width: 640px) {
+    #device-wrapper {
+        padding: 0;
+        background: var(--surface);
+    }
+    #app-container {
+        max-width: 100%;
+        min-height: 100vh;
+        border-radius: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    #desktop-toolbar {
+        display: none !important;
+    }
+}
+
+/* ==========================================================================
+   Page & Tab Isolation (Strict Display None)
+   ========================================================================== */
+.tab-page {
+    display: none !important;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tab-page.active {
+    display: block !important;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.page-view {
+    display: none !important;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.page-view.active {
+    display: block !important;
+    opacity: 1;
+}
+
+.analysis-subview {
+    display: none !important;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.analysis-subview.active {
+    display: block !important;
+    opacity: 1;
+}
+
+/* ==========================================================================
+   Bottom Navigation Bar (App Dock)
+   ========================================================================== */
+.app-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: var(--app-max-width);
+    height: 68px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(208, 213, 221, 0.6);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 6px 12px;
+    z-index: 45;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+}
+
+#app-container.wide-mode .app-bottom-nav {
+    max-width: 768px;
+    border-bottom-left-radius: 28px;
+    border-bottom-right-radius: 28px;
+}
+
+@media (min-width: 641px) {
+    #app-container:not(.wide-mode) .app-bottom-nav {
+        border-bottom-left-radius: 36px;
+        border-bottom-right-radius: 36px;
+    }
+}
+
+.nav-tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 6px 4px;
+    color: var(--on-surface-variant);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    transition: all 0.15s ease;
+    border-radius: 16px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    outline: none;
+}
+
+.nav-tab-btn .material-symbols-outlined {
+    font-size: 24px;
+    margin-bottom: 2px;
+    transition: transform 0.15s ease, font-variation-settings 0.15s ease;
+}
+
+.nav-tab-btn:active {
+    transform: scale(0.92);
+}
+
+.nav-tab-btn.active {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.nav-tab-btn.active .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1;
+    transform: translateY(-1px);
+}
+
+.nav-tab-btn.active .nav-indicator {
+    width: 16px;
+    height: 3px;
+    background-color: var(--primary);
+    border-radius: 9999px;
+    margin-top: 2px;
+}
+
+/* ==========================================================================
+   Custom Utility Classes & Mobile Polishing
+   ========================================================================== */
 .ghost-border {
-    border: 1px solid rgba(195, 198, 213, 0.25);
+    border: 1px solid rgba(208, 213, 221, 0.7);
 }
 
 .ghost-outline {
-    box-shadow: inset 0 0 0 1px rgba(195, 198, 213, 0.2);
-}
-
-/* Glassmorphism */
-.glass-panel {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    box-shadow: inset 0 0 0 1px rgba(208, 213, 221, 0.6);
 }
 
 .glass-nav {
@@ -70,15 +248,6 @@ body {
     -webkit-backdrop-filter: blur(16px);
 }
 
-.dark .glass-panel {
-    background: rgba(30, 31, 35, 0.85);
-}
-
-.dark .glass-nav {
-    background: rgba(30, 31, 35, 0.92);
-}
-
-/* Hide Scrollbar */
 .no-scrollbar::-webkit-scrollbar,
 .hide-scrollbar::-webkit-scrollbar {
     display: none;
@@ -90,33 +259,46 @@ body {
     scrollbar-width: none;
 }
 
-/* Custom Tab & Page Transitions */
-.page-view {
-    display: none;
-    opacity: 0;
-    transform: translateY(6px);
-    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+/* Keypad Button */
+.keypad-btn {
+    transition: all 0.1s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.page-view.active {
-    display: block;
-    opacity: 1;
-    transform: translateY(0);
+.keypad-btn:active {
+    transform: scale(0.92);
+    background-color: var(--surface-container-high) !important;
 }
 
-/* Sub-views for Analysis tabs */
-.analysis-subview {
-    display: none;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
+/* Modal & Bottom Sheet Transitions */
+.modal-overlay {
+    transition: opacity 0.25s ease;
 }
 
-.analysis-subview.active {
-    display: block;
-    opacity: 1;
+.bottomsheet-content {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Bar Chart Grow Animation */
+.drawer-content {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-content {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+/* Mobile Card Tap Interaction */
+.mobile-card {
+    transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.mobile-card:active {
+    transform: scale(0.985);
+    background-color: var(--surface-container-low);
+}
+
+/* Bar Chart Animation */
 @keyframes growUp {
     from {
         height: 0;
@@ -130,66 +312,4 @@ body {
 .animate-bar {
     animation: growUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     transform-origin: bottom;
-}
-
-/* Keypad Ripple and Click Feedback */
-.keypad-btn {
-    transition: all 0.1s ease;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.keypad-btn:active {
-    transform: scale(0.92);
-    background-color: var(--surface-container-high) !important;
-}
-
-/* Bottom Sheet & Modal Animations */
-.modal-overlay {
-    transition: opacity 0.25s ease;
-}
-
-.modal-content {
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
-}
-
-.bottomsheet-content {
-    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.drawer-content {
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Floating Action Button Pulse */
-@keyframes fabPulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(9, 76, 178, 0.4);
-    }
-    70% {
-        box-shadow: 0 0 0 12px rgba(9, 76, 178, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(9, 76, 178, 0);
-    }
-}
-
-.pulse-primary {
-    animation: fabPulse 2s infinite;
-}
-
-/* Card Hover Lift */
-.card-hover {
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-}
-
-.card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
-}
-
-/* Device View Modes */
-.desktop-viewport-mode {
-    max-width: 1200px;
-    margin: 0 auto;
 }
