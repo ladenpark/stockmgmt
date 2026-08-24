@@ -68,6 +68,8 @@ export default function AlexandriaApp() {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
+  const [isPortfolioLoaded, setIsPortfolioLoaded] = useState(false);
+
   // Stock Database
   const [stocks, setStocks] = useState([
     {
@@ -293,11 +295,14 @@ export default function AlexandriaApp() {
       }
     } catch (e) {
       console.error("Failed to load portfolio from localStorage", e);
+    } finally {
+      setIsPortfolioLoaded(true);
     }
   }, []);
 
-  // 포트폴리오 변경 시 로컬 스토리지에 영구 자동 저장 (새로고침/브라우저 재시작 시 유지)
+  // 포트폴리오 변경 시 로컬 스토리지에 영구 자동 저장 (초기 로드 완료 후에만 저장하여 덮어쓰기 방지)
   useEffect(() => {
+    if (!isPortfolioLoaded) return;
     try {
       if (typeof window !== "undefined" && stocks && stocks.length > 0) {
         localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(stocks));
@@ -305,7 +310,7 @@ export default function AlexandriaApp() {
     } catch (e) {
       console.error("Failed to save portfolio to localStorage", e);
     }
-  }, [stocks]);
+  }, [stocks, isPortfolioLoaded]);
 
   useEffect(() => {
     // 1. WebSocket 실시간 틱(Tick) 스트리밍 연결 (0.01초 체결)
@@ -1804,6 +1809,11 @@ export default function AlexandriaApp() {
                       ]
                     : s.holdings,
               };
+              try {
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(copy));
+                }
+              } catch (e) {}
               return copy;
             } else {
               // 새 종목으로 등록
@@ -1830,7 +1840,13 @@ export default function AlexandriaApp() {
                 ],
                 transactions: [newTransaction],
               };
-              return [newStockItem, ...copy];
+              const updated = [newStockItem, ...copy];
+              try {
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(updated));
+                }
+              } catch (e) {}
+              return updated;
             }
           });
 
@@ -1907,6 +1923,11 @@ export default function AlexandriaApp() {
                 });
               }
             }
+            try {
+              if (typeof window !== "undefined") {
+                localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(copy));
+              }
+            } catch (e) {}
             return copy;
           });
 
