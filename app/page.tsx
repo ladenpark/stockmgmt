@@ -694,46 +694,14 @@ export default function AlexandriaApp() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#d9e2ff]/50">
-                        <span className={`inline-block w-2 h-2 rounded-full ${isWsConnected ? "bg-emerald-500 animate-ping" : "bg-[#22c55e]"}`} />
-                        <span className="text-[10px] font-label font-bold text-[#094cb2]">
-                          {isWsConnected ? "⚡ 실시간 틱(Tick) 스트리밍" : "실시간 자동 동기화"}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-label text-xs font-bold ghost-border shadow-xs">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
+                        <span>실시간 LIVE</span>
                       </div>
-                      <div className="flex items-center gap-0.5 bg-[#efedee] p-0.5 rounded-full ghost-border">
-                        {[
-                          { sec: 3, label: "3초" },
-                          { sec: 5, label: "5초" },
-                          { sec: 10, label: "10초" },
-                          { sec: 0, label: "정지" },
-                        ].map((item) => (
-                          <button
-                            key={item.sec}
-                            onClick={() => {
-                              setRefreshInterval(item.sec);
-                              if (item.sec > 0) showToast(`${item.label} 실시간 갱신 모드로 변경되었습니다.`);
-                            }}
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
-                              refreshInterval === item.sec
-                                ? "bg-[#094cb2] text-white shadow-xs"
-                                : "text-[#434653] hover:text-[#1b1c1d]"
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      <button
-                        onClick={() => fetchRealtimeQuotes(true)}
-                        disabled={isLiveLoading}
-                        className="px-2.5 py-1 bg-white hover:bg-[#efedee] active:scale-95 rounded-full text-[11px] font-label text-[#094cb2] font-semibold flex items-center gap-1 transition-all shadow-xs ghost-border"
-                      >
-                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${isLiveLoading ? "bg-[#3366cc] animate-ping" : "bg-[#22c55e]"}`} />
-                        <span>{isLiveLoading ? "갱신중..." : lastSyncTime ? `${lastSyncTime} 갱신` : "지금 갱신"}</span>
-                        <span className={`material-symbols-outlined text-xs ${isLiveLoading ? "animate-spin" : ""}`}>refresh</span>
-                      </button>
                     </div>
                   </div>
 
