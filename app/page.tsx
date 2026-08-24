@@ -41,8 +41,10 @@ export default function AlexandriaApp() {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Exchange rate
-  const rate = 1385.50;
+  // Exchange rate & Real-time Live State
+  const [rate, setRate] = useState<number>(1385.48);
+  const [isLiveLoading, setIsLiveLoading] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>("");
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -175,6 +177,73 @@ export default function AlexandriaApp() {
       ]
     }
   ]);
+
+  // 실시간 시세 및 환율 자동 수집 함수
+  const fetchRealtimeQuotes = async (manual = false) => {
+    if (manual) setIsLiveLoading(true);
+    try {
+      const tickers = stocks.map((s) => s.ticker).join(",");
+      const res = await fetch(`/api/stocks?tickers=${tickers}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const quotes = json.data.quotes || {};
+          const currentRate = json.data.exchangeRate?.rate;
+          if (currentRate && typeof currentRate === "number") {
+            setRate(currentRate);
+          }
+
+          setStocks((prev) =>
+            prev.map((s) => {
+              const q = quotes[s.ticker];
+              if (q) {
+                const effectiveRate = currentRate || rate || 1385.48;
+                // 한국 주식(KRW)은 USD 기준 환산, 미국 주식(USD)은 그대로 적용
+                const priceInUsd =
+                  q.currency === "KRW"
+                    ? q.currentPrice / effectiveRate
+                    : q.currentPrice;
+                const changeInUsd =
+                  q.currency === "KRW"
+                    ? q.regularMarketChange / effectiveRate
+                    : q.regularMarketChange;
+
+                return {
+                  ...s,
+                  currentPriceUsd: Number(priceInUsd.toFixed(2)),
+                  changePct: Number((q.currentChangePercent || 0).toFixed(2)),
+                  changeAmountUsd: Number(changeInUsd.toFixed(2)),
+                };
+              }
+              return s;
+            })
+          );
+
+          const now = new Date();
+          setLastSyncTime(
+            now.toLocaleTimeString("ko-KR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          );
+          if (manual) showToast("한국투자증권 실시간 시세가 갱신되었습니다.");
+        }
+      }
+    } catch (err) {
+      console.error("실시간 시세 수집 오류:", err);
+    } finally {
+      if (manual) setIsLiveLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRealtimeQuotes();
+    const interval = setInterval(() => {
+      fetchRealtimeQuotes();
+    }, 10000); // 10초마다 자동 시세 갱신
+    return () => clearInterval(interval);
+  }, []);
 
   // Format money helper
   const formatMoney = (usdVal: number) => {
@@ -518,11 +587,24 @@ export default function AlexandriaApp() {
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="font-label text-xs uppercase tracking-wider text-[#434653] font-semibold">총 자산 평가금</span>
-                      <div className="font-headline text-3xl md:text-4xl font-bold text-[#1b1c1d] mt-1">
-                        {formatMoney(totalValuationUsd)}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="font-headline text-3xl md:text-4xl font-bold text-[#1b1c1d]">
+                          {formatMoney(totalValuationUsd)}
+                        </span>
+                        <span className="text-[11px] font-label px-2 py-0.5 rounded-md bg-[#d9e2ff] text-[#094cb2] font-bold">
+                          ₩{rate.toLocaleString()}/$
+                        </span>
                       </div>
                     </div>
-                    <span className="px-3 py-1 bg-[#efedee] rounded-full text-xs font-label text-[#434653] font-semibold">실시간 동기화</span>
+                    <button
+                      onClick={() => fetchRealtimeQuotes(true)}
+                      disabled={isLiveLoading}
+                      className="px-3 py-1.5 bg-[#efedee] hover:bg-[#e9e8e9] active:scale-95 rounded-full text-xs font-label text-[#094cb2] font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <span className={`inline-block w-2 h-2 rounded-full ${isLiveLoading ? "bg-[#3366cc] animate-ping" : "bg-[#22c55e]"}`} />
+                      <span>{isLiveLoading ? "갱신중..." : lastSyncTime ? `${lastSyncTime} 갱신` : "실시간 갱신"}</span>
+                      <span className={`material-symbols-outlined text-sm ${isLiveLoading ? "animate-spin" : ""}`}>refresh</span>
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-5 pt-5 border-t border-[#c3c6d5]/50">

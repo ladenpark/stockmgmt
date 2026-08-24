@@ -373,8 +373,8 @@ export async function fetchUSStockQuote(ticker: string, exchangeRate: number): P
 
 // Fallback 1 Helper: 한국투자증권 (KIS) Open API
 async function fetchKISStockQuote(ticker: string): Promise<StockQuote | null> {
-  const kisAppKey = process.env.KIS_APPKEY;
-  const kisAppSecret = process.env.KIS_APPSECRET;
+  const kisAppKey = process.env.KIS_APP_KEY || process.env.KIS_APPKEY;
+  const kisAppSecret = process.env.KIS_APP_SECRET || process.env.KIS_APPSECRET;
   if (!kisAppKey || !kisAppSecret) return null;
 
   const nowStr = new Date().toISOString();
