@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Menu, Tune, TrendingUp, TrendingDown, Star, ArrowBack,
   Close, Add, Delete, UploadFile, PictureAsPdf, AccountBalance,
@@ -9,9 +9,11 @@ import {
 } from "@mui/icons-material"; // or Material symbols span
 import { motion, AnimatePresence } from "framer-motion";
 import ManualAssetModal from "@/components/ManualAssetModal";
+import BatchImportPreviewModal from "@/components/BatchImportPreviewModal";
+import { parseExcelFile, parsePdfFile, ParsedRowItem } from "@/lib/apiClient";
 
 // Types
-type TabType = "home" | "daily" | "whatif" | "analysis" | "hub";
+type TabType = "home" | "daily" | "transactions" | "whatif" | "analysis" | "hub";
 type AnalysisSubView = "dividend" | "profit" | "tax" | "trend" | "weight";
 type CurrencyType = "KRW" | "USD";
 
@@ -22,6 +24,7 @@ export default function AlexandriaApp() {
   const [analysisSubView, setAnalysisSubView] = useState<AnalysisSubView>("dividend");
   const [weightCategory, setWeightCategory] = useState<"stocks" | "assets" | "accounts">("stocks");
   const [whatIfMode, setWhatIfMode] = useState<"divested" | "virtual">("divested");
+  const [txFilterType, setTxFilterType] = useState<"ALL" | "매수" | "매도" | "배당">("ALL");
 
   // Stock Detail (P-101) & Keypad (P-102) States
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
@@ -32,16 +35,25 @@ export default function AlexandriaApp() {
   const [keypadQty, setKeypadQty] = useState("10");
   const [keypadPrice, setKeypadPrice] = useState("192.42");
 
-  // Other Overlays
+  // Other Overlays & File Upload States
   const [isAccountDrawerOpen, setIsAccountDrawerOpen] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isDailyDetailOpen, setIsDailyDetailOpen] = useState(false);
   const [selectedDailyRow, setSelectedDailyRow] = useState<any>(null);
   const [isAddVirtualOpen, setIsAddVirtualOpen] = useState(false);
-  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Excel / PDF Preview Modal States
+  const [isExcelLoading, setIsExcelLoading] = useState(false);
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewFileName, setPreviewFileName] = useState("");
+  const [previewItems, setPreviewItems] = useState<ParsedRowItem[]>([]);
+  const [previewBrokerage, setPreviewBrokerage] = useState<string | undefined>(undefined);
+
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Exchange rate & Real-time Live State
   const [rate, setRate] = useState<number>(1385.48);
@@ -365,6 +377,53 @@ export default function AlexandriaApp() {
       return (krw < 0 ? "-₩" : "₩") + Math.abs(krw).toLocaleString();
     }
     return (usdVal < 0 ? "-$" : "$") + Math.abs(usdVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  // Excel & PDF File Upload Handlers
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExcelLoading(true);
+    try {
+      const res = await parseExcelFile(file);
+      if (res.success && res.data && res.data.length > 0) {
+        setPreviewFileName(file.name);
+        setPreviewItems(res.data);
+        setPreviewBrokerage(undefined);
+        setPreviewModalOpen(true);
+      } else {
+        showToast(res.error || "엑셀 파일에서 유효한 데이터를 찾지 못했습니다.");
+      }
+    } catch (err: any) {
+      showToast(err.message || "파일 업로드 중 오류 발생");
+    } finally {
+      setIsExcelLoading(false);
+      if (excelInputRef.current) excelInputRef.current.value = "";
+    }
+  };
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsPdfLoading(true);
+    try {
+      const res = await parsePdfFile(file);
+      if (res.success && res.data && res.data.length > 0) {
+        setPreviewFileName(file.name);
+        setPreviewItems(res.data);
+        setPreviewBrokerage(res.brokerage_detected || "증권사 잔고명세서");
+        setPreviewModalOpen(true);
+      } else {
+        showToast(res.error || "PDF에서 종목 내역을 인식하지 못했습니다.");
+      }
+    } catch (err: any) {
+      showToast(err.message || "PDF 분석 중 오류 발생");
+    } finally {
+      setIsPdfLoading(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+    }
   };
 
   // Calculations
@@ -1171,15 +1230,164 @@ export default function AlexandriaApp() {
             )}
 
             {/* ===================================================================== */}
+            {/* TAB 3: ALL TRANSACTIONS HISTORY */}
+            {/* ===================================================================== */}
+            {activeTab === "transactions" && (
+              <section className="space-y-5">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="font-headline text-2xl font-bold text-[#1b1c1d]">전체 거래내역 타임라인</h2>
+                    <p className="font-body text-xs text-[#434653] mt-0.5">등록된 모든 계좌의 매수, 매도, 배당 체결 이력</p>
+                  </div>
+                  <button
+                    onClick={() => setIsManualModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-[#094cb2] text-white rounded-full text-xs font-label font-bold flex items-center gap-1 shadow-xs hover:bg-[#003da5] active:scale-95 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    <span>거래내역 직접 등록</span>
+                  </button>
+                </div>
+
+                {/* Transaction Summary Stats */}
+                {(() => {
+                  const allTx = stocks.flatMap((s) =>
+                    s.transactions.map((t) => ({
+                      ...t,
+                      ticker: s.ticker,
+                      stockName: s.name,
+                      currency: s.market === "KR" ? "KRW" : "USD",
+                      totalUsd: t.shares * t.priceUsd,
+                    }))
+                  );
+
+                  const buyTx = allTx.filter((t) => t.type === "매수");
+                  const sellTx = allTx.filter((t) => t.type === "매도");
+                  const divTx = allTx.filter((t) => t.type === "배당" || t.type === "배당금");
+
+                  const totalBuyAmountUsd = buyTx.reduce((acc, t) => acc + t.totalUsd, 0);
+                  const totalDivAmountUsd = divTx.reduce((acc, t) => acc + t.totalUsd, 0);
+
+                  const filteredTx = (txFilterType === "ALL" ? allTx : allTx.filter((t) => t.type === txFilterType)).sort(
+                    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+                  );
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-2.5">
+                        <div className="p-4 bg-white rounded-2xl ghost-border shadow-xs">
+                          <span className="text-[11px] font-label font-bold text-[#434653] block">총 거래 건수</span>
+                          <div className="font-headline text-xl font-bold text-[#1b1c1d] mt-1">{allTx.length}건</div>
+                        </div>
+                        <div className="p-4 bg-white rounded-2xl ghost-border shadow-xs">
+                          <span className="text-[11px] font-label font-bold text-[#434653] block">누적 매수 체결</span>
+                          <div className="font-headline text-xl font-bold text-[#094cb2] mt-1">{formatMoney(totalBuyAmountUsd)}</div>
+                        </div>
+                        <div className="p-4 bg-white rounded-2xl ghost-border shadow-xs">
+                          <span className="text-[11px] font-label font-bold text-[#434653] block">누적 배당 수령</span>
+                          <div className="font-headline text-xl font-bold text-[#6d5e00] mt-1">{formatMoney(totalDivAmountUsd)}</div>
+                        </div>
+                      </div>
+
+                      {/* Filter Chips */}
+                      <div className="flex items-center gap-1.5 bg-[#efedee] p-1 rounded-2xl w-fit">
+                        {(["ALL", "매수", "매도", "배당"] as const).map((filter) => (
+                          <button
+                            key={filter}
+                            onClick={() => setTxFilterType(filter)}
+                            className={`px-3.5 py-1.5 rounded-xl font-label text-xs font-bold transition-all ${
+                              txFilterType === filter
+                                ? "bg-white text-[#094cb2] shadow-xs"
+                                : "text-[#434653] hover:text-[#1b1c1d]"
+                            }`}
+                          >
+                            {filter === "ALL" ? "전체 보기" : filter}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Transaction List */}
+                      <div className="bg-white rounded-3xl ghost-border overflow-hidden shadow-xs divide-y divide-[#efedee]">
+                        {filteredTx.length === 0 ? (
+                          <div className="p-12 text-center text-[#434653] space-y-2">
+                            <span className="material-symbols-outlined text-4xl text-[#c3c6d5]">receipt_long</span>
+                            <div className="font-bold text-sm">해당 구분의 거래 내역이 없습니다.</div>
+                            <p className="text-xs">상단 [+ 거래내역 직접 등록] 버튼을 눌러 첫 거래를 등록해보세요.</p>
+                          </div>
+                        ) : (
+                          filteredTx.map((tx, idx) => (
+                            <div key={idx} className="p-4.5 flex items-center justify-between hover:bg-[#f9fafb] transition-colors">
+                              <div className="flex items-center gap-3.5">
+                                <div
+                                  className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs ${
+                                    tx.type === "매수"
+                                      ? "bg-[#d9e2ff] text-[#094cb2]"
+                                      : tx.type === "매도"
+                                      ? "bg-[#ffdad6] text-[#ba1a1a]"
+                                      : "bg-[#fef3c7] text-[#6d5e00]"
+                                  }`}
+                                >
+                                  {tx.type}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-headline font-bold text-sm text-[#1b1c1d]">{tx.stockName}</span>
+                                    <span className="text-xs text-[#434653]">({tx.ticker})</span>
+                                    <span className="px-2 py-0.5 rounded-md bg-[#efedee] text-[10px] font-semibold text-[#434653]">
+                                      {tx.brokerage}
+                                    </span>
+                                  </div>
+                                  <div className="font-body text-xs text-[#434653] mt-0.5">
+                                    {tx.date} • {tx.shares.toLocaleString()}주 @ {formatMoney(tx.priceUsd)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-headline font-bold text-sm text-[#1b1c1d]">{formatMoney(tx.totalUsd)}</div>
+                                <span
+                                  className={`text-[11px] font-bold ${
+                                    tx.type === "매수" ? "text-[#094cb2]" : tx.type === "매도" ? "text-[#ba1a1a]" : "text-[#6d5e00]"
+                                  }`}
+                                >
+                                  {tx.type === "매수" ? "- 매수 지출" : tx.type === "매도" ? "+ 매도 수금" : "+ 배당금 입금"}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </section>
+            )}
+
+            {/* ===================================================================== */}
             {/* TAB 5: DATA HUB */}
             {/* ===================================================================== */}
             {activeTab === "hub" && (
               <section className="space-y-5">
                 <div>
                   <h2 className="font-headline text-2xl font-bold text-[#1b1c1d]">설정 & 데이터 허브</h2>
-                  <p className="font-body text-xs text-[#434653] mt-0.5">엑셀 일괄 동기화, 증권사 PDF 분석 및 계좌 관리</p>
+                  <p className="font-body text-xs text-[#434653] mt-0.5">엑셀 일괄 동기화, 증권사 PDF 분석 및 초기 자산 관리</p>
                 </div>
 
+                {/* 1. Direct Manual Asset Setup Banner */}
+                <div className="bg-gradient-to-r from-[#094cb2] to-[#3366cc] rounded-3xl p-6 text-white shadow-md flex items-center justify-between">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-white/20 uppercase tracking-wider">초기 자산 관리</span>
+                    <h3 className="font-headline text-lg font-extrabold">내 보유 주식 / 초기자산 직접 등록</h3>
+                    <p className="font-body text-xs text-white/80">토스, 키움, 미래에셋 등 증권사별 보유 수량과 평단가를 직접 입력합니다.</p>
+                  </div>
+                  <button
+                    onClick={() => setIsManualModalOpen(true)}
+                    className="px-4 py-2.5 rounded-2xl bg-white text-[#094cb2] font-bold text-xs hover:bg-[#f5f3f4] active:scale-95 transition-all shadow-xs shrink-0 flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    <span>직접 등록</span>
+                  </button>
+                </div>
+
+                {/* 2. Excel & PDF Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="bg-white rounded-3xl p-6 ghost-border space-y-3 card-interactive shadow-xs">
                     <div className="flex items-center gap-3">
@@ -1187,23 +1395,27 @@ export default function AlexandriaApp() {
                         <span className="material-symbols-outlined text-2xl">table_view</span>
                       </div>
                       <div>
-                        <h4 className="font-headline text-base font-bold text-[#1b1c1d]">Excel 데이터 일괄 동기화</h4>
-                        <p className="font-body text-xs text-[#434653]">가계부형 엑셀 파일로 불러오기/내보내기</p>
+                        <h4 className="font-headline text-base font-bold text-[#1b1c1d]">Excel (.xlsx, .csv) 일괄 등록</h4>
+                        <p className="font-body text-xs text-[#434653]">증권사 엑셀 파일을 업로드하여 일괄 등록</p>
                       </div>
                     </div>
                     <div className="flex gap-2 pt-1">
                       <button
-                        onClick={() => showToast("엑셀 파일 선택 완료")}
-                        className="flex-1 py-2.5 rounded-xl bg-[#094cb2] text-white font-label text-xs font-bold"
+                        disabled={isExcelLoading}
+                        onClick={() => excelInputRef.current?.click()}
+                        className="flex-1 py-2.5 rounded-xl bg-[#094cb2] text-white font-label text-xs font-bold hover:bg-[#003da5] active:scale-95 transition-all flex items-center justify-center gap-1"
                       >
-                        엑셀 불러오기
+                        <span className="material-symbols-outlined text-sm">upload_file</span>
+                        <span>{isExcelLoading ? "분석 중..." : "엑셀 파일 업로드"}</span>
                       </button>
-                      <button
-                        onClick={() => showToast("alexandria_portfolio.xlsx 파일로 내보냈습니다.")}
-                        className="px-4 py-2.5 rounded-xl bg-[#efedee] text-[#1b1c1d] font-label text-xs font-semibold"
+                      <a
+                        href="/api/hub/template"
+                        download
+                        className="px-3.5 py-2.5 rounded-xl bg-[#efedee] text-[#1b1c1d] font-label text-xs font-semibold hover:bg-[#e9e8e9] active:scale-95 transition-all flex items-center gap-1"
                       >
-                        내보내기
-                      </button>
+                        <span className="material-symbols-outlined text-sm">download</span>
+                        <span>양식 다운로드</span>
+                      </a>
                     </div>
                   </div>
 
@@ -1218,20 +1430,22 @@ export default function AlexandriaApp() {
                       </div>
                     </div>
                     <button
-                      onClick={() => showToast("증권사 PDF 스마트 분석 시뮬레이션 완료")}
-                      className="w-full py-2.5 rounded-xl bg-[#efedee] text-[#1b1c1d] font-label text-xs font-bold"
+                      disabled={isPdfLoading}
+                      onClick={() => pdfInputRef.current?.click()}
+                      className="w-full py-2.5 rounded-xl bg-[#efedee] text-[#1b1c1d] font-label text-xs font-bold hover:bg-[#e9e8e9] active:scale-95 transition-all flex items-center justify-center gap-1.5"
                     >
-                      PDF 분석 등록
+                      <span className="material-symbols-outlined text-sm text-[#094cb2]">picture_as_pdf</span>
+                      <span>{isPdfLoading ? "PDF 스마트 분석 중..." : "증권사 잔고명세서 PDF 업로드"}</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Connected Accounts */}
+                {/* 3. Connected Accounts */}
                 <div className="bg-white rounded-3xl p-6 ghost-border space-y-3 shadow-xs">
                   <div className="flex justify-between items-center">
                     <h4 className="font-headline text-base font-bold text-[#1b1c1d]">연동 계좌 관리</h4>
-                    <button onClick={() => showToast("새 증권사 계좌 연동")} className="text-[#094cb2] font-label text-xs font-bold flex items-center gap-1">
-                      + 계좌추가
+                    <button onClick={() => setIsManualModalOpen(true)} className="text-[#094cb2] font-label text-xs font-bold flex items-center gap-1 hover:underline">
+                      + 계좌/종목 추가
                     </button>
                   </div>
                   <div className="space-y-2 text-xs font-body">
@@ -1239,22 +1453,22 @@ export default function AlexandriaApp() {
                       <div className="flex items-center gap-3">
                         <span className="material-symbols-outlined text-[#094cb2] text-2xl">account_balance</span>
                         <div>
-                          <div className="font-bold text-[#1b1c1d] text-sm">Fidelity Investments</div>
-                          <div className="text-xs text-[#434653]">미국 메인 계좌 • 2개 종목</div>
+                          <div className="font-bold text-[#1b1c1d] text-sm">토스증권 / 카카오페이증권</div>
+                          <div className="text-xs text-[#434653]">해외 성장주 & 국내 배당주 계좌</div>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-[#d9e2ff] text-[#094cb2] text-xs font-bold">연동됨</span>
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">정상 연동</span>
                     </div>
 
                     <div className="flex items-center justify-between p-3.5 bg-[#f5f3f4] rounded-2xl">
                       <div className="flex items-center gap-3">
                         <span className="material-symbols-outlined text-[#094cb2] text-2xl">account_balance</span>
                         <div>
-                          <div className="font-bold text-[#1b1c1d] text-sm">토스증권 / 카카오페이</div>
-                          <div className="text-xs text-[#434653]">해외 성장주 & 배당주 계좌</div>
+                          <div className="font-bold text-[#1b1c1d] text-sm">키움증권 / 미래에셋</div>
+                          <div className="text-xs text-[#434653]">국내 및 해외 주식 포트폴리오</div>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-[#d9e2ff] text-[#094cb2] text-xs font-bold">연동됨</span>
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">정상 연동</span>
                     </div>
                   </div>
                 </div>
@@ -1270,7 +1484,7 @@ export default function AlexandriaApp() {
           {[
             { id: "home", label: "홈", icon: "account_balance_wallet" },
             { id: "daily", label: "데일리", icon: "calendar_view_day" },
-            { id: "whatif", label: "What-If", icon: "auto_awesome" },
+            { id: "transactions", label: "거래내역", icon: "receipt_long" },
             { id: "analysis", label: "분석", icon: "analytics" },
             { id: "hub", label: "허브", icon: "tune" },
           ].map((tab) => (
@@ -1557,6 +1771,97 @@ export default function AlexandriaApp() {
 
           showToast(`[${newStockItem.name}] 종목이 포트폴리오에 성공적으로 등록되었습니다.`);
         }}
+      />
+
+      {/* Batch Import Preview Modal (Excel & PDF) */}
+      <BatchImportPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        fileName={previewFileName}
+        initialItems={previewItems}
+        detectedBrokerage={previewBrokerage}
+        onSuccess={(count, items) => {
+          const effectiveRate = rate || 1385.48;
+
+          setStocks((prev) => {
+            const copy = [...prev];
+
+            for (const item of items) {
+              const priceInUsd =
+                item.currency === "KRW" ? Number(item.price) / effectiveRate : Number(item.price);
+              const ticker = item.ticker.toUpperCase();
+              const existingIndex = copy.findIndex((s) => s.ticker === ticker);
+
+              const newHolding = {
+                id: `h_${Date.now()}_${Math.random()}`,
+                brokerage: item.account || "기본 계좌",
+                shares: Number(item.quantity),
+                avgPriceUsd: Number(priceInUsd.toFixed(2)),
+              };
+
+              const newTx = {
+                id: `tx_${Date.now()}_${Math.random()}`,
+                type: item.type === "BUY" ? "매수" : "매도",
+                date: item.date || new Date().toISOString().slice(0, 10),
+                shares: Number(item.quantity),
+                priceUsd: Number(priceInUsd.toFixed(2)),
+                brokerage: item.account || "기본 계좌",
+              };
+
+              if (existingIndex >= 0) {
+                const s = copy[existingIndex];
+                const totalShares = s.shares + Number(item.quantity);
+                const avgPriceUsd =
+                  totalShares > 0
+                    ? (s.shares * s.avgPriceUsd + Number(item.quantity) * priceInUsd) / totalShares
+                    : s.avgPriceUsd;
+
+                copy[existingIndex] = {
+                  ...s,
+                  shares: totalShares,
+                  avgPriceUsd: Number(avgPriceUsd.toFixed(2)),
+                  holdings: [...s.holdings, newHolding],
+                  transactions: [...s.transactions, newTx],
+                };
+              } else {
+                copy.unshift({
+                  id: `s_${ticker.toLowerCase()}_${Date.now()}`,
+                  name: item.name || ticker,
+                  ticker: ticker,
+                  category: /^\d+$/.test(ticker) ? "국내주식" : "해외주식",
+                  market: (/^\d+$/.test(ticker) ? "KR" : "US") as "US" | "KR",
+                  shares: Number(item.quantity),
+                  avgPriceUsd: Number(priceInUsd.toFixed(2)),
+                  currentPriceUsd: Number(priceInUsd.toFixed(2)),
+                  changePct: 0.0,
+                  changeAmountUsd: 0.0,
+                  marketStateLabel: /^\d+$/.test(ticker) ? "장마감" : "프리마켓",
+                  holdings: [newHolding],
+                  transactions: [newTx],
+                });
+              }
+            }
+            return copy;
+          });
+
+          showToast(`총 ${count}건의 종목/체결 내역이 포트폴리오에 성공적으로 반영되었습니다.`);
+        }}
+      />
+
+      {/* Hidden File Inputs */}
+      <input
+        type="file"
+        ref={excelInputRef}
+        onChange={handleExcelUpload}
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={pdfInputRef}
+        onChange={handlePdfUpload}
+        accept=".pdf"
+        className="hidden"
       />
 
       {/* Floating Toast */}
