@@ -7,6 +7,9 @@ from app.core.database import engine, Base, AsyncSessionLocal
 from app.api.v1 import api_v1_router
 from app.services.seed_data import seed_initial_data
 
+import asyncio
+from app.services.kis_websocket import kis_ws_manager
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -26,8 +29,19 @@ async def lifespan(app: FastAPI):
         await seed_initial_data(session)
         
     logger.info(f"{settings.PROJECT_NAME} v{settings.VERSION} started successfully!")
+
+    # Start KIS WebSocket Stream in background if configured
+    ws_task = None
+    if kis_ws_manager.is_configured():
+        logger.info("Starting KIS 실시간 틱(Tick) WebSocket background stream...")
+        ws_task = asyncio.create_task(kis_ws_manager.start_kis_stream())
+
     yield
+
     logger.info("Shutting down application...")
+    if ws_task:
+        kis_ws_manager.stop()
+        ws_task.cancel()
 
 # FastAPI Application Factory
 app = FastAPI(

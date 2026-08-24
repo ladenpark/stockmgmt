@@ -46,6 +46,8 @@ export default function AlexandriaApp() {
   const [isLiveLoading, setIsLiveLoading] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>("");
   const [refreshInterval, setRefreshInterval] = useState<number>(3); // 3초 초고속 실시간 기본값
+  const [isWsConnected, setIsWsConnected] = useState<boolean>(false);
+  const [flashingTicks, setFlashingTicks] = useState<Record<string, "UP" | "DOWN">>({});
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -239,13 +241,107 @@ export default function AlexandriaApp() {
   };
 
   useEffect(() => {
+    // 1. WebSocket 실시간 틱(Tick) 스트리밍 연결 (0.01초 체결)
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectWebSocket = () => {
+      if (typeof window === "undefined") return;
+      const wsUrl = "ws://localhost:8001";
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          setIsWsConnected(true);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "TICK" && msg.data) {
+              const tick = msg.data;
+              const ticker = tick.ticker;
+              const tickType = tick.tickType || "UP";
+
+              // 틱 플래시 효과 트리거 (600ms 동안 시각적 하이라이트)
+              setFlashingTicks((prev) => ({ ...prev, [ticker]: tickType }));
+              setTimeout(() => {
+                setFlashingTicks((prev) => {
+                  const copy = { ...prev };
+                  delete copy[ticker];
+                  return copy;
+                });
+              }, 600);
+
+              // 주가 및 등락률 실시간 업데이트
+              setStocks((prev) =>
+                prev.map((s) => {
+                  if (s.ticker === ticker || s.ticker.toUpperCase() === ticker.toUpperCase()) {
+                    const effectiveRate = rate || 1385.48;
+                    const priceInUsd =
+                      tick.currency === "KRW"
+                        ? tick.currentPrice / effectiveRate
+                        : tick.currentPrice;
+                    const changeInUsd =
+                      tick.currency === "KRW"
+                        ? tick.changeAmount / effectiveRate
+                        : tick.changeAmount;
+
+                    return {
+                      ...s,
+                      currentPriceUsd: Number(priceInUsd.toFixed(2)),
+                      changePct: Number((tick.changePercent || 0).toFixed(2)),
+                      changeAmountUsd: Number(changeInUsd.toFixed(2)),
+                    };
+                  }
+                  return s;
+                })
+              );
+
+              const now = new Date();
+              setLastSyncTime(
+                now.toLocaleTimeString("ko-KR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })
+              );
+            }
+          } catch (e) {
+            // ignore parse error
+          }
+        };
+
+        ws.onclose = () => {
+          setIsWsConnected(false);
+          reconnectTimeout = setTimeout(connectWebSocket, 5000);
+        };
+
+        ws.onerror = () => {
+          setIsWsConnected(false);
+        };
+      } catch {
+        setIsWsConnected(false);
+      }
+    };
+
+    connectWebSocket();
+
+    // 2. HTTP Polling Fallback (기본 3초)
     fetchRealtimeQuotes();
-    if (refreshInterval <= 0) return;
-    const interval = setInterval(() => {
-      fetchRealtimeQuotes();
-    }, refreshInterval * 1000);
-    return () => clearInterval(interval);
-  }, [refreshInterval]);
+    let interval: any = null;
+    if (refreshInterval > 0) {
+      interval = setInterval(() => {
+        fetchRealtimeQuotes();
+      }, refreshInterval * 1000);
+    }
+
+    return () => {
+      if (ws) ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (interval) clearInterval(interval);
+    };
+  }, [refreshInterval, rate]);
 
   // Format money helper
   const formatMoney = (usdVal: number) => {
@@ -599,6 +695,12 @@ export default function AlexandriaApp() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#d9e2ff]/50">
+                        <span className={`inline-block w-2 h-2 rounded-full ${isWsConnected ? "bg-emerald-500 animate-ping" : "bg-[#22c55e]"}`} />
+                        <span className="text-[10px] font-label font-bold text-[#094cb2]">
+                          {isWsConnected ? "⚡ 실시간 틱(Tick) 스트리밍" : "실시간 자동 동기화"}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-0.5 bg-[#efedee] p-0.5 rounded-full ghost-border">
                         {[
                           { sec: 3, label: "3초" },
@@ -703,23 +805,40 @@ export default function AlexandriaApp() {
                     </button>
                   </div>
 
-                  <div className="space-y-2.5">
+                    <div className="space-y-2.5">
                     {stocks.map((stock) => {
                       const valUsd = stock.shares * stock.currentPriceUsd;
                       const returnPct = ((stock.currentPriceUsd - stock.avgPriceUsd) / stock.avgPriceUsd) * 100;
                       const isPos = returnPct >= 0;
+                      const tickFlash = flashingTicks[stock.ticker];
+
                       return (
                         <div
                           key={stock.id}
                           onClick={() => setSelectedStockId(stock.id)}
-                          className="bg-white p-4.5 rounded-3xl ghost-border flex items-center justify-between cursor-pointer card-interactive shadow-xs"
+                          className={`p-4.5 rounded-3xl ghost-border flex items-center justify-between cursor-pointer card-interactive shadow-xs transition-all duration-300 ${
+                            tickFlash === "UP"
+                              ? "bg-emerald-50/80 ring-2 ring-emerald-500 scale-[1.01]"
+                              : tickFlash === "DOWN"
+                              ? "bg-rose-50/80 ring-2 ring-rose-500 scale-[1.01]"
+                              : "bg-white"
+                          }`}
                         >
                           <div className="flex items-center gap-3.5">
-                            <div className="w-11 h-11 rounded-2xl bg-[#efedee] flex items-center justify-center font-headline font-bold text-sm text-[#094cb2]">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-headline font-bold text-sm transition-colors ${
+                              tickFlash === "UP" ? "bg-emerald-200 text-emerald-800" : tickFlash === "DOWN" ? "bg-rose-200 text-rose-800" : "bg-[#efedee] text-[#094cb2]"
+                            }`}>
                               {stock.ticker.slice(0, 3)}
                             </div>
                             <div>
-                              <div className="font-headline font-bold text-base text-[#1b1c1d]">{stock.name}</div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-headline font-bold text-base text-[#1b1c1d]">{stock.name}</span>
+                                {tickFlash && (
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${tickFlash === "UP" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`}>
+                                    {tickFlash === "UP" ? "▲ TICK" : "▼ TICK"}
+                                  </span>
+                                )}
+                              </div>
                               <div className="font-body text-xs text-[#434653]">{stock.ticker} • {stock.shares}주</div>
                             </div>
                           </div>
