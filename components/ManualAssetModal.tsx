@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { addManualAsset, ManualAssetPayload } from "@/lib/apiClient";
+import { searchStocks, MasterStockItem, MASTER_STOCKS } from "@/lib/stockDictionary";
 
 interface ManualAssetModalProps {
   isOpen: boolean;
@@ -12,17 +13,6 @@ interface ManualAssetModalProps {
 
 type TxType = "BUY" | "SELL" | "DIVIDEND" | "CASH";
 
-const COMMON_TICKERS = [
-  { ticker: "AAPL", name: "애플", market: "US", currency: "USD" },
-  { ticker: "NVDA", name: "엔비디아", market: "US", currency: "USD" },
-  { ticker: "TSLA", name: "테슬라", market: "US", currency: "USD" },
-  { ticker: "MSFT", name: "마이크로소프트", market: "US", currency: "USD" },
-  { ticker: "PLTR", name: "팔란티어", market: "US", currency: "USD" },
-  { ticker: "005930", name: "삼성전자", market: "KR", currency: "KRW" },
-  { ticker: "000660", name: "SK하이닉스", market: "KR", currency: "KRW" },
-  { ticker: "035420", name: "NAVER", market: "KR", currency: "KRW" },
-];
-
 const BROKERAGES = ["토스증권", "키움증권", "미래에셋증권", "카카오페이증권", "한국투자증권", "KB증권", "직접입력"];
 
 export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeRate = 1385.5 }: ManualAssetModalProps) {
@@ -31,26 +21,36 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
 
   const [brokerage, setBrokerage] = useState("토스증권");
   const [customBrokerage, setCustomBrokerage] = useState("");
+
+  // Search & Selected Stock State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<MasterStockItem[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
   const [ticker, setTicker] = useState("");
   const [name, setName] = useState("");
   const [market, setMarket] = useState<"US" | "KR">("US");
+  const [currency, setCurrency] = useState<"USD" | "KRW">("USD");
+
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [cashAmount, setCashAmount] = useState("");
-  const [currency, setCurrency] = useState<"USD" | "KRW">("USD");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
 
-  const [isSearching, setIsSearching] = useState(false);
   const [liveQuoteInfo, setLiveQuoteInfo] = useState<{ price: number; currency: string; name: string } | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const searchTimeoutRef = useRef<any>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<any>(null);
 
   useEffect(() => {
     if (!isOpen) {
+      setSearchQuery("");
       setTicker("");
       setName("");
       setQuantity("");
@@ -58,67 +58,92 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
       setCashAmount("");
       setLiveQuoteInfo(null);
       setErrorMessage("");
+      setIsDropdownOpen(false);
     }
   }, [isOpen]);
 
-  // Real-time Stock Lookup when Ticker changes
+  // Click outside to close search dropdown
   useEffect(() => {
-    const cleanTicker = ticker.trim().toUpperCase();
-    if (!cleanTicker || txType === "CASH") {
-      setLiveQuoteInfo(null);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Handle Smart Search Input (Ticker, Korean name, English name, Chosung, Aliases)
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      setSearchResults(MASTER_STOCKS.slice(0, 8));
+      setIsDropdownOpen(true);
       return;
     }
 
-    // 1. Determine Market & Currency by pattern
-    const isKoreanCode = /^[0-9][0-9A-Z]{5}$/i.test(cleanTicker);
-    if (isKoreanCode) {
-      setMarket("KR");
-      setCurrency("KRW");
-    } else {
-      setMarket("US");
-      setCurrency("USD");
-    }
-
-    // 2. Debounced API Lookup to auto-fetch official Name and Live Price
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     setIsSearching(true);
+    setIsDropdownOpen(true);
 
-    searchTimeoutRef.current = setTimeout(async () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/stocks?tickers=${cleanTicker}`);
+        const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query.trim())}&limit=8`);
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data?.quotes?.[cleanTicker]) {
-            const q = json.data.quotes[cleanTicker];
-            setName(q.name || cleanTicker);
-            setMarket(q.market as "US" | "KR");
-            setCurrency(q.currency as "USD" | "KRW");
-            setLiveQuoteInfo({
-              price: q.currentPrice,
-              currency: q.currency,
-              name: q.name,
-            });
+          if (json.success && Array.isArray(json.data)) {
+            setSearchResults(json.data);
           }
+        } else {
+          // Fallback to local dictionary search
+          setSearchResults(searchStocks(query, 8));
         }
-      } catch (err) {
-        console.warn("Stock lookup error:", err);
+      } catch {
+        setSearchResults(searchStocks(query, 8));
       } finally {
         setIsSearching(false);
       }
-    }, 400);
+    }, 200);
+  };
 
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
-  }, [ticker, txType]);
-
-  if (!isOpen) return null;
-
-  const handleSelectCommonTicker = (item: (typeof COMMON_TICKERS)[0]) => {
+  // When a stock is selected from search results or popular chips
+  const handleSelectStock = (item: MasterStockItem) => {
     setTicker(item.ticker);
     setName(item.name);
-    setMarket(item.market as "US" | "KR");
-    setCurrency(item.currency as "USD" | "KRW");
+    setSearchQuery(`${item.name} (${item.ticker})`);
+    setMarket(item.market);
+    setCurrency(item.currency);
+    setIsDropdownOpen(false);
+    setErrorMessage("");
+
+    // Fetch live market quote immediately
+    fetchLiveQuote(item.ticker, item.market);
+  };
+
+  const fetchLiveQuote = async (cleanTicker: string, itemMarket: "US" | "KR") => {
+    try {
+      const res = await fetch(`/api/stocks?tickers=${cleanTicker}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.quotes?.[cleanTicker]) {
+          const q = json.data.quotes[cleanTicker];
+          setLiveQuoteInfo({
+            price: q.currentPrice,
+            currency: q.currency,
+            name: q.name || name,
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const handleApplyLivePrice = () => {
@@ -132,7 +157,7 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
     setErrorMessage("");
 
     const finalBrokerage = brokerage === "직접입력" ? customBrokerage.trim() : brokerage;
-    const cleanTicker = ticker.trim().toUpperCase();
+    const cleanTicker = ticker.trim().toUpperCase() || searchQuery.trim().toUpperCase();
     const cleanName = name.trim() || cleanTicker;
     const numQty = parseFloat(quantity);
     const numPrice = parseFloat(price);
@@ -146,7 +171,7 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
 
     if (txType === "BUY" || txType === "SELL") {
       if (!cleanTicker) {
-        setErrorMessage("종목코드(티커)를 입력해주세요.");
+        setErrorMessage("종목을 검색하여 선택해주세요.");
         return;
       }
       if (isNaN(numQty) || numQty <= 0) {
@@ -159,7 +184,7 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
       }
     } else if (txType === "DIVIDEND") {
       if (!cleanTicker) {
-        setErrorMessage("배당을 지급한 종목코드를 입력해주세요.");
+        setErrorMessage("배당을 지급한 종목을 검색하여 선택해주세요.");
         return;
       }
       if (isNaN(numPrice) || numPrice <= 0) {
@@ -237,7 +262,7 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
             </div>
             <div>
               <h3 className="font-headline font-bold text-lg text-[#1b1c1d]">종합 거래내역 직접 등록</h3>
-              <p className="font-body text-xs text-[#434653]">매수, 매도, 배당금 및 예수금 입출금을 기록합니다.</p>
+              <p className="font-body text-xs text-[#434653]">종목명, 티커, 초성으로 손쉽게 검색하여 등록합니다.</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#efedee] text-[#434653]">
@@ -333,63 +358,128 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
             )}
           </div>
 
-          {/* 종목 입력 (주식 거래 & 배당 시) */}
+          {/* 🌟 스마트 통합 종목 검색바 (주식 거래 & 배당 시) */}
           {txType !== "CASH" && (
-            <>
-              <div>
-                <label className="block text-xs font-bold text-[#1b1c1d] mb-1.5">인기 종목 빠른 선택</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {COMMON_TICKERS.map((item) => (
-                    <button
-                      type="button"
-                      key={item.ticker}
-                      onClick={() => handleSelectCommonTicker(item)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
-                        ticker === item.ticker ? "bg-[#d9e2ff] text-[#094cb2] border-[#094cb2]" : "bg-white text-[#434653] border-[#c3c6d5] hover:bg-[#efedee]"
-                      }`}
-                    >
-                      {item.name} ({item.ticker})
-                    </button>
-                  ))}
+            <div className="relative">
+              <label className="block text-xs font-bold text-[#1b1c1d] mb-1.5 flex items-center justify-between">
+                <span>종목 검색 (종목명, 티커, 초성) *</span>
+                {isSearching && (
+                  <span className="text-[10px] text-[#094cb2] font-semibold flex items-center gap-0.5">
+                    <span className="material-symbols-outlined text-xs animate-spin">sync</span> 검색중...
+                  </span>
+                )}
+              </label>
+
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#434653]">
+                  <span className="material-symbols-outlined text-base">search</span>
                 </div>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onFocus={() => {
+                    if (!searchQuery) setSearchResults(MASTER_STOCKS.slice(0, 8));
+                    setIsDropdownOpen(true);
+                  }}
+                  onChange={handleSearchInputChange}
+                  placeholder="예: 삼전, 애플, 테슬라, NVDA, ㅅㅅㅈㅈ, 005930"
+                  className="w-full pl-10 pr-10 py-3 rounded-2xl border border-[#c3c6d5] text-xs font-bold text-[#1b1c1d] focus:outline-none focus:border-[#094cb2] focus:ring-2 focus:ring-[#094cb2]/20 transition-all shadow-xs"
+                  required
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setTicker("");
+                      setName("");
+                      setLiveQuoteInfo(null);
+                      searchInputRef.current?.focus();
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#434653] hover:text-[#1b1c1d]"
+                  >
+                    <span className="material-symbols-outlined text-base">cancel</span>
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-[#1b1c1d]">종목 코드 (티커) *</label>
-                    {isSearching && (
-                      <span className="text-[10px] text-[#094cb2] font-semibold flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-xs animate-spin">sync</span> 조회중...
-                      </span>
-                    )}
+              {/* 🔽 Auto-Complete Dropdown */}
+              {isDropdownOpen && (
+                <div
+                  ref={dropdownRef}
+                  className="absolute z-50 left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-xl border border-[#c3c6d5]/60 max-h-60 overflow-y-auto divide-y divide-[#efedee] animate-fadeIn"
+                >
+                  <div className="p-2 bg-[#f5f3f4] text-[11px] font-bold text-[#434653] flex justify-between items-center">
+                    <span>추천 및 검색 결과 ({searchResults.length}건)</span>
+                    <span className="text-[10px] text-[#434653]/80">클릭 시 자동 완성</span>
                   </div>
-                  <input
-                    type="text"
-                    value={ticker}
-                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                    placeholder="예: AMZN, 035420, IONQ"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#c3c6d5] text-xs font-semibold focus:outline-none focus:border-[#094cb2]"
-                    required
-                  />
+                  {searchResults.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[#434653]">
+                      일치하는 종목이 없습니다. 티커를 직접 입력하실 수 있습니다.
+                    </div>
+                  ) : (
+                    searchResults.map((item) => (
+                      <div
+                        key={item.ticker}
+                        onClick={() => handleSelectStock(item)}
+                        className="p-3 hover:bg-[#d9e2ff]/30 cursor-pointer flex items-center justify-between transition-colors group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-base">
+                            {item.market === "KR" ? "🇰🇷" : "🇺🇸"}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs text-[#1b1c1d] group-hover:text-[#094cb2]">
+                                {item.name}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded-md bg-[#efedee] text-[10px] font-bold text-[#094cb2]">
+                                {item.ticker}
+                              </span>
+                            </div>
+                            {item.category && (
+                              <div className="text-[10px] text-[#434653] mt-0.5">
+                                {item.category} {item.nameEn ? `• ${item.nameEn}` : ""}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#efedee] text-[#434653]">
+                            {item.currency}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#1b1c1d] mb-1">
-                    종목명 {name && <span className="text-[10px] text-emerald-600 font-normal">(자동 조회됨)</span>}
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={isSearching ? "종목명 조회 중..." : "예: 아마존닷컴"}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#c3c6d5] text-xs focus:outline-none focus:border-[#094cb2]"
-                  />
+              )}
+
+              {/* Selected Stock Info Banner */}
+              {ticker && (
+                <div className="mt-2.5 p-3 bg-[#f5f3f4] rounded-2xl flex items-center justify-between border border-[#c3c6d5]/40 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{market === "KR" ? "🇰🇷" : "🇺🇸"}</span>
+                    <div>
+                      <span className="font-bold text-[#1b1c1d]">{name}</span>
+                      <span className="text-[#094cb2] font-bold ml-1">({ticker})</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${currency === "USD" ? "bg-[#094cb2] text-white" : "bg-emerald-700 text-white"}`}>
+                      {currency}
+                    </span>
+                    <span className="text-[10px] text-[#434653] font-semibold">
+                      {market === "KR" ? "국내주식" : "미국주식"}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Live Price Helper Badge */}
               {liveQuoteInfo && liveQuoteInfo.price > 0 && (
-                <div className="p-3 bg-[#d9e2ff]/40 border border-[#094cb2]/20 rounded-2xl flex items-center justify-between text-xs">
+                <div className="mt-2 p-3 bg-[#d9e2ff]/40 border border-[#094cb2]/20 rounded-2xl flex items-center justify-between text-xs animate-fadeIn">
                   <div className="flex items-center gap-1.5 text-[#094cb2] font-semibold">
                     <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>
@@ -410,7 +500,7 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
                   </button>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* 수량 및 단가 (매수/매도 시) */}
