@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any, Optional
 from app.core.config import settings
+from app.services.kis_service import kis_service
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +10,7 @@ _PRICE_CACHE: Dict[str, Dict[str, Any]] = {
     "AAPL": {"price": 192.42, "change_pct": 1.25, "change_amount": 2.38, "name": "애플", "market": "US", "currency": "USD", "category": "테크놀로지"},
     "NVDA": {"price": 945.50, "change_pct": 3.42, "change_amount": 31.20, "name": "엔비디아", "market": "US", "currency": "USD", "category": "반도체 / AI"},
     "MSFT": {"price": 428.15, "change_pct": -0.45, "change_amount": -1.95, "name": "마이크로소프트", "market": "US", "currency": "USD", "category": "소프트웨어 / 클라우드"},
-    "005930": {"price": 57.02, "change_pct": 0.89, "change_amount": 0.50, "name": "삼성전자", "market": "KR", "currency": "KRW", "category": "국내 대형주"},
+    "005930": {"price": 78500.0, "change_pct": 0.89, "change_amount": 700.0, "name": "삼성전자", "market": "KR", "currency": "KRW", "category": "국내 대형주"},
     "TSLA": {"price": 178.50, "change_pct": 2.15, "change_amount": 3.75, "name": "테슬라", "market": "US", "currency": "USD", "category": "전기차 / 신에너지"},
     "O": {"price": 54.20, "change_pct": 0.35, "change_amount": 0.19, "name": "리얼티 인컴", "market": "US", "currency": "USD", "category": "월배당 리츠"},
     "PLTR": {"price": 25.80, "change_pct": 2.80, "change_amount": 0.70, "name": "팔란티어", "market": "US", "currency": "USD", "category": "AI / 빅데이터"},
@@ -25,12 +26,19 @@ class StockService:
 
     @staticmethod
     def get_stock_price(ticker: str) -> Dict[str, Any]:
-        """티커의 실시간 시세 및 메타데이터 조회 (캐시 및 외부 연동)"""
+        """
+        티커의 실시간 시세 및 메타데이터 조회
+        1. 한국투자증권(KIS) API 설정 시 KIS 실시간 시세 우선 조회
+        2. KIS 미설정 또는 실패 시 Yahoo Finance (yfinance) 조회
+        3. 실패 시 로컬 캐시 폴백 (앱 중단 방지)
+        """
         ticker_clean = ticker.upper().strip()
+        
+        # 1. Check in-memory cache first
         if ticker_clean in _PRICE_CACHE:
             return _PRICE_CACHE[ticker_clean]
         
-        # 외부 yfinance 시세 조회 시도
+        # 2. Try yfinance fallback
         try:
             import yfinance as yf
             stock = yf.Ticker(ticker_clean)

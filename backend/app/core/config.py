@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     DEFAULT_USD_KRW_RATE: float = 1385.50
     OVERSEAS_TAX_DEDUCTION_KRW: float = 2500000.0  # 250만원 기본공제
     OVERSEAS_TAX_RATE: float = 0.22  # 양도소득세 20% + 지방소득세 2%
+
+    # Korea Investment & Securities (KIS) Open API Configuration
+    KIS_APP_KEY: str = os.getenv("KIS_APP_KEY", "")
+    KIS_APP_SECRET: str = os.getenv("KIS_APP_SECRET", "")
+    KIS_CANO: str = os.getenv("KIS_CANO", "")  # 계좌번호 앞 8자리
+    KIS_ACNT_PRDT_CD: str = os.getenv("KIS_ACNT_PRDT_CD", "01")  # 계좌번호 뒤 2자리 (종합계좌: 01)
+    KIS_IS_VIRTUAL: bool = os.getenv("KIS_IS_VIRTUAL", "false").lower() == "true"  # 모의투자 여부
     
     class Config:
         case_sensitive = True
