@@ -62,6 +62,19 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
     }
   }, [isOpen]);
 
+  // ESC key listener to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Click outside to close search dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -234,8 +247,14 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[#c3c6d5]/40 max-h-[90vh] overflow-y-auto">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-[#c3c6d5]/40 max-h-[90vh] overflow-y-auto cursor-default"
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#efedee]">
           <div className="flex items-center gap-2.5">
@@ -265,8 +284,17 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
               <p className="font-body text-xs text-[#434653]">종목명, 티커, 초성으로 손쉽게 검색하여 등록합니다.</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#efedee] text-[#434653]">
-            <span className="material-symbols-outlined text-lg">close</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+            aria-label="닫기"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#f5f3f4] hover:bg-[#efedee] text-[#1b1c1d] active:scale-90 transition-all cursor-pointer z-20"
+          >
+            <span className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
 
@@ -662,8 +690,12 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
           <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[#efedee]">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#434653] hover:bg-[#efedee] transition-all"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose();
+              }}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-[#434653] hover:bg-[#efedee] active:scale-95 transition-all cursor-pointer"
             >
               취소
             </button>
