@@ -48,14 +48,18 @@ export interface TransactionPayload {
 }
 
 export interface ManualAssetPayload {
+  type?: "BUY" | "SELL" | "DIVIDEND" | "DEPOSIT" | "WITHDRAW" | "매수" | "매도" | "배당금" | "입금" | "출금";
   brokerage: string;
-  ticker: string;
+  ticker?: string;
   name?: string;
   market?: "US" | "KR";
-  quantity: number;
-  average_buy_price: number;
+  quantity?: number;
+  price?: number;
+  average_buy_price?: number;
+  amount?: number;
   currency?: "USD" | "KRW";
   transacted_at?: string;
+  notes?: string;
 }
 
 export interface ParsedRowItem {

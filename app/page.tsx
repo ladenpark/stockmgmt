@@ -1713,63 +1713,91 @@ export default function AlexandriaApp() {
         isOpen={isManualModalOpen}
         onClose={() => setIsManualModalOpen(false)}
         exchangeRate={rate}
-        onSuccess={(newAsset) => {
+        onSuccess={(txData) => {
           const effectiveRate = rate || 1385.48;
+          const rawPrice = Number(txData.price || txData.average_buy_price || txData.amount || 0);
           const priceInUsd =
-            newAsset.currency === "KRW"
-              ? Number(newAsset.average_buy_price) / effectiveRate
-              : Number(newAsset.average_buy_price);
+            txData.currency === "KRW" ? rawPrice / effectiveRate : rawPrice;
+          const qty = Number(txData.quantity || 1);
+          const ticker = String(txData.ticker || "CASH").toUpperCase();
+          const txTypeLabel = txData.displayType || (txData.type === "BUY" ? "매수" : txData.type === "SELL" ? "매도" : txData.type === "DIVIDEND" ? "배당" : txData.type === "DEPOSIT" ? "입금" : "출금");
 
-          const newStockItem = {
-            id: `s_${newAsset.ticker.toLowerCase()}_${Date.now()}`,
-            name: newAsset.name || newAsset.ticker,
-            ticker: newAsset.ticker.toUpperCase(),
-            category: newAsset.market === "KR" ? "국내주식" : "해외주식",
-            market: (newAsset.market || "US") as "US" | "KR",
-            shares: Number(newAsset.quantity),
-            avgPriceUsd: Number(priceInUsd.toFixed(2)),
-            currentPriceUsd: Number(priceInUsd.toFixed(2)),
-            changePct: 0.0,
-            changeAmountUsd: 0.0,
-            marketStateLabel: newAsset.market === "KR" ? "장마감" : "프리마켓",
-            holdings: [
-              {
-                id: `h_${Date.now()}`,
-                brokerage: newAsset.brokerage || "기본 계좌",
-                shares: Number(newAsset.quantity),
-                avgPriceUsd: Number(priceInUsd.toFixed(2)),
-              },
-            ],
-            transactions: [
-              {
-                id: `tx_${Date.now()}`,
-                type: "매수",
-                date: newAsset.transacted_at || new Date().toISOString().slice(0, 10),
-                shares: Number(newAsset.quantity),
-                priceUsd: Number(priceInUsd.toFixed(2)),
-                brokerage: newAsset.brokerage || "기본 계좌",
-              },
-            ],
+          const newTransaction = {
+            id: `tx_${Date.now()}`,
+            type: txTypeLabel,
+            date: txData.transacted_at || new Date().toISOString().slice(0, 10),
+            shares: qty,
+            priceUsd: Number(priceInUsd.toFixed(2)),
+            brokerage: txData.brokerage || "기본 계좌",
+            notes: txData.notes || "",
           };
 
           setStocks((prev) => {
-            const exists = prev.find((s) => s.ticker === newStockItem.ticker);
-            if (exists) {
-              return prev.map((s) =>
-                s.ticker === newStockItem.ticker
-                  ? {
-                      ...s,
-                      shares: s.shares + newStockItem.shares,
-                      holdings: [...s.holdings, ...newStockItem.holdings],
-                      transactions: [...s.transactions, ...newStockItem.transactions],
-                    }
-                  : s
-              );
+            const copy = [...prev];
+            const existingIndex = copy.findIndex((s) => s.ticker === ticker);
+
+            if (existingIndex >= 0) {
+              const s = copy[existingIndex];
+              let newShares = s.shares;
+              let newAvgPrice = s.avgPriceUsd;
+
+              if (txTypeLabel === "매수") {
+                const totalShares = s.shares + qty;
+                newAvgPrice = totalShares > 0 ? (s.shares * s.avgPriceUsd + qty * priceInUsd) / totalShares : s.avgPriceUsd;
+                newShares = totalShares;
+              } else if (txTypeLabel === "매도") {
+                newShares = Math.max(0, s.shares - qty);
+              }
+
+              copy[existingIndex] = {
+                ...s,
+                shares: Number(newShares.toFixed(2)),
+                avgPriceUsd: Number(newAvgPrice.toFixed(2)),
+                transactions: [newTransaction, ...s.transactions],
+                holdings:
+                  txTypeLabel === "매수"
+                    ? [
+                        ...s.holdings,
+                        {
+                          id: `h_${Date.now()}`,
+                          brokerage: txData.brokerage || "기본 계좌",
+                          shares: qty,
+                          avgPriceUsd: Number(priceInUsd.toFixed(2)),
+                        },
+                      ]
+                    : s.holdings,
+              };
+              return copy;
+            } else {
+              // 새 종목으로 등록
+              const initialShares = txTypeLabel === "매수" ? qty : 0;
+              const newStockItem = {
+                id: `s_${ticker.toLowerCase()}_${Date.now()}`,
+                name: txData.name || ticker,
+                ticker: ticker,
+                category: /^\d+$/.test(ticker) ? "국내주식" : "해외주식",
+                market: (/^\d+$/.test(ticker) ? "KR" : "US") as "US" | "KR",
+                shares: initialShares,
+                avgPriceUsd: Number(priceInUsd.toFixed(2)),
+                currentPriceUsd: Number(priceInUsd.toFixed(2)),
+                changePct: 0.0,
+                changeAmountUsd: 0.0,
+                marketStateLabel: /^\d+$/.test(ticker) ? "장마감" : "프리마켓",
+                holdings: [
+                  {
+                    id: `h_${Date.now()}`,
+                    brokerage: txData.brokerage || "기본 계좌",
+                    shares: initialShares,
+                    avgPriceUsd: Number(priceInUsd.toFixed(2)),
+                  },
+                ],
+                transactions: [newTransaction],
+              };
+              return [newStockItem, ...copy];
             }
-            return [newStockItem, ...prev];
           });
 
-          showToast(`[${newStockItem.name}] 종목이 포트폴리오에 성공적으로 등록되었습니다.`);
+          showToast(`[${txData.name || ticker}] ${txTypeLabel} 내역이 성공적으로 등록되었습니다.`);
         }}
       />
 

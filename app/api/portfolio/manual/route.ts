@@ -3,14 +3,23 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { brokerage, ticker, name, market, quantity, average_buy_price, currency, transacted_at } = body;
+    const {
+      type = "BUY",
+      brokerage = "기본 계좌",
+      ticker,
+      name,
+      market = "US",
+      quantity = 0,
+      price = 0,
+      average_buy_price = 0,
+      amount = 0,
+      currency = "USD",
+      transacted_at = new Date().toISOString().slice(0, 10),
+      notes = "",
+    } = body;
 
-    if (!ticker || !quantity || !average_buy_price) {
-      return NextResponse.json(
-        { success: false, error: "종목코드, 수량, 매입단가는 필수 입력 항목입니다." },
-        { status: 400 }
-      );
-    }
+    const effectivePrice = price || average_buy_price || amount || 0;
+    const effectiveQty = quantity || 1;
 
     // Try forwarding to FastAPI backend if available
     try {
@@ -29,16 +38,19 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `[${name || ticker}] ${quantity}주가 ${brokerage || "기본 계좌"}에 성공적으로 등록되었습니다.`,
+      message: `[${name || ticker || "거래"}] 거래 내역이 ${brokerage}에 성공적으로 등록되었습니다.`,
       data: {
         id: `manual_${Date.now()}`,
-        ticker: String(ticker).toUpperCase(),
-        name: name || String(ticker).toUpperCase(),
-        shares: Number(quantity),
-        avgPriceUsd: currency === "KRW" ? Number(average_buy_price) / 1385.48 : Number(average_buy_price),
+        type,
+        ticker: String(ticker || "CASH").toUpperCase(),
+        name: name || String(ticker || "거래").toUpperCase(),
+        shares: Number(effectiveQty),
+        priceUsd: currency === "KRW" ? Number(effectivePrice) / 1385.48 : Number(effectivePrice),
+        amountUsd: currency === "KRW" ? Number(effectivePrice * effectiveQty) / 1385.48 : Number(effectivePrice * effectiveQty),
         currency: currency || "USD",
         brokerage: brokerage || "기본 계좌",
-        transacted_at: transacted_at || new Date().toISOString().slice(0, 10),
+        transacted_at: transacted_at,
+        notes: notes,
       },
     });
   } catch (error: any) {
