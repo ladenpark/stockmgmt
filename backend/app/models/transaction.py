@@ -10,9 +10,9 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="거래 ID")
     account_id = Column(Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, comment="체결 계좌 ID (accounts.id)")
-    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="CASCADE"), nullable=False, comment="체결 자산 ID (assets.id)")
+    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="SET NULL"), nullable=True, comment="체결 자산 ID (종목 거래 시, 입출금 시 NULL)")
     
-    type = Column(String(20), nullable=False, comment="거래 구분 (BUY: 매수, SELL: 매도, DIVIDEND: 배당금 수령)")
+    type = Column(String(20), nullable=False, comment="거래 구분 (BUY: 매수, SELL: 매도, DIVIDEND: 배당금, DEPOSIT: 입금, WITHDRAW: 출금)")
     quantity = Column(Float, nullable=False, default=0.0, comment="체결 수량 (주)")
     price = Column(Float, nullable=False, default=0.0, comment="체결 단가 (해당 거래 통화)")
     currency = Column(String(10), nullable=False, default="USD", comment="체결 통화 (USD, KRW)")

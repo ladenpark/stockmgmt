@@ -13,6 +13,8 @@ class Account(Base):
     brokerage_code = Column(String(50), nullable=True, comment="증권사 코드 (예: FIDELITY, TOSS, KAKAO, MIRAE)")
     account_number = Column(String(50), nullable=True, comment="마스킹된 계좌번호")
     color = Column(String(20), nullable=True, default="#094cb2", comment="계좌 대표 테마 색상 (HEX)")
+    cash_balance = Column(Float, nullable=False, default=0.0, comment="계좌별 예수금 현금 잔고")
+    currency = Column(String(10), nullable=False, default="KRW", comment="기본 통화 (KRW, USD)")
     is_active = Column(Boolean, default=True, comment="계좌 활성화 여부 (True: 활성, False: 비활성)")
     created_at = Column(DateTime, default=datetime.utcnow, comment="계좌 등록 일시")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="계좌 수정 일시")
