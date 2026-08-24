@@ -183,13 +183,13 @@ export async function fetchUSStockQuote(ticker: string, exchangeRate: number): P
     };
   }
 
-  // 1. Primary: Naver Overseas Stock API (.O, .N, .A 순서 시도 - 프리마켓/애프터마켓 지원)
+  // 1. Primary: Naver Overseas Stock API (.O, .N, .A 순서 시도 - 프리장/데이마켓/애프터장 24시간 실시간 지원)
   const symbolsToTry = [`${cleanTicker}.O`, `${cleanTicker}.N`, `${cleanTicker}.A`];
   for (const symbol of symbolsToTry) {
     try {
       const res = await fetch(`https://api.stock.naver.com/stock/${symbol}/basic`, {
         headers: { "User-Agent": BROWSER_USER_AGENT },
-        next: { revalidate: 30 },
+        cache: "no-store",
       });
       if (res.ok) {
         const data = await res.json();
@@ -207,16 +207,21 @@ export async function fetchUSStockQuote(ticker: string, exchangeRate: number): P
             const overInfo = data.overMarketPriceInfo;
             const overPrice = parseFloat(String(overInfo.overPrice || overInfo.overPriceRaw).replace(/,/g, "")) || regularPrice;
             const overRatio = parseFloat(String(overInfo.fluctuationsRatio || overInfo.fluctuationsRatioRaw).replace(/,/g, "")) || regularChangePercent;
-            const sessionType = overInfo.tradingSessionType || overInfo.overPriceType;
+            const sessionType = String(overInfo.tradingSessionType || overInfo.overPriceType || "").toUpperCase();
 
-            if (sessionType === "PRE_MARKET" || overInfo.overMarketStatus === "OPEN") {
+            if (sessionType.includes("PRE") || overInfo.overMarketStatus === "OPEN") {
               marketState = "PRE";
               marketStateLabel = "프리마켓";
               currentPrice = overPrice;
               currentChangePercent = overRatio;
-            } else if (sessionType === "AFTER_MARKET") {
+            } else if (sessionType.includes("AFTER") || sessionType.includes("POST")) {
               marketState = "POST";
               marketStateLabel = "애프터마켓";
+              currentPrice = overPrice;
+              currentChangePercent = overRatio;
+            } else if (sessionType.includes("DAY")) {
+              marketState = "PRE";
+              marketStateLabel = "데이마켓";
               currentPrice = overPrice;
               currentChangePercent = overRatio;
             }
@@ -473,7 +478,7 @@ export async function fetchKRStockQuote(ticker: string): Promise<StockQuote> {
   try {
     const res = await fetch(`https://m.stock.naver.com/api/stock/${cleanTicker}/integration`, {
       headers: { "User-Agent": BROWSER_USER_AGENT },
-      next: { revalidate: 30 },
+      cache: "no-store",
     });
     if (res.ok) {
       const data = await res.json();

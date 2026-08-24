@@ -231,6 +231,7 @@ export default function AlexandriaApp() {
                   currentPriceUsd: newPrice,
                   changePct: Number((q.currentChangePercent || 0).toFixed(2)),
                   changeAmountUsd: Number(changeInUsd.toFixed(2)),
+                  marketStateLabel: q.marketStateLabel || (s.market === "KR" ? "장마감" : "프리마켓"),
                 };
               }
               return s;
@@ -819,7 +820,26 @@ export default function AlexandriaApp() {
                                   </span>
                                 )}
                               </div>
-                              <div className="font-body text-xs text-[#434653]">{stock.ticker} • {stock.shares}주</div>
+                              <div className="flex items-center gap-1.5 font-body text-xs text-[#434653] mt-0.5">
+                                <span>{stock.ticker} • {stock.shares}주</span>
+                                {(stock as any).marketStateLabel && (
+                                  <span
+                                    className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                                      (stock as any).marketStateLabel === "프리마켓"
+                                        ? "bg-amber-100 text-amber-800"
+                                        : (stock as any).marketStateLabel === "데이마켓"
+                                        ? "bg-sky-100 text-sky-800"
+                                        : (stock as any).marketStateLabel === "애프터마켓"
+                                        ? "bg-purple-100 text-purple-800"
+                                        : (stock as any).marketStateLabel === "정규장"
+                                        ? "bg-emerald-100 text-emerald-800"
+                                        : "bg-gray-100 text-gray-600"
+                                    }`}
+                                  >
+                                    {(stock as any).marketStateLabel}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
 
