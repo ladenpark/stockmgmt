@@ -195,11 +195,19 @@ export default function AlexandriaApp() {
     }
   ]);
 
+  const stocksRef = useRef(stocks);
+  stocksRef.current = stocks;
+
   // 실시간 시세 및 환율 자동 수집 함수
-  const fetchRealtimeQuotes = async (manual = false) => {
+  const fetchRealtimeQuotes = async (manual = false, customTickers?: string[]) => {
     if (manual) setIsLiveLoading(true);
     try {
-      const tickers = stocks.map((s) => s.ticker).join(",");
+      const currentList = stocksRef.current;
+      const tickers = customTickers && customTickers.length > 0
+        ? customTickers.join(",")
+        : currentList.map((s) => s.ticker).join(",");
+      if (!tickers) return;
+
       const res = await fetch(`/api/stocks?tickers=${tickers}`);
       if (res.ok) {
         const json = await res.json();
@@ -212,7 +220,7 @@ export default function AlexandriaApp() {
 
           setStocks((prev) =>
             prev.map((s) => {
-              const q = quotes[s.ticker];
+              const q = quotes[s.ticker] || quotes[s.ticker.toUpperCase()];
               if (q) {
                 const effectiveRate = currentRate || rate || 1385.48;
                 // 한국 주식(KRW)은 USD 기준 환산, 미국 주식(USD)은 그대로 적용
@@ -222,8 +230,8 @@ export default function AlexandriaApp() {
                     : q.currentPrice;
                 const changeInUsd =
                   q.currency === "KRW"
-                    ? q.regularMarketChange / effectiveRate
-                    : q.regularMarketChange;
+                    ? (q.regularMarketChange || 0) / effectiveRate
+                    : (q.regularMarketChange || 0);
 
                 const newPrice = Number(priceInUsd.toFixed(2));
 
@@ -242,6 +250,7 @@ export default function AlexandriaApp() {
 
                 return {
                   ...s,
+                  name: s.name && s.name !== s.ticker ? s.name : q.name || s.name,
                   currentPriceUsd: newPrice,
                   changePct: Number((q.currentChangePercent || 0).toFixed(2)),
                   changeAmountUsd: Number(changeInUsd.toFixed(2)),
@@ -1798,6 +1807,7 @@ export default function AlexandriaApp() {
           });
 
           showToast(`[${txData.name || ticker}] ${txTypeLabel} 내역이 성공적으로 등록되었습니다.`);
+          setTimeout(() => fetchRealtimeQuotes(false), 200);
         }}
       />
 
@@ -1873,6 +1883,7 @@ export default function AlexandriaApp() {
           });
 
           showToast(`총 ${count}건의 종목/체결 내역이 포트폴리오에 성공적으로 반영되었습니다.`);
+          setTimeout(() => fetchRealtimeQuotes(false), 200);
         }}
       />
 

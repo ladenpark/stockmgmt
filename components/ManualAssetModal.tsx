@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { addManualAsset, ManualAssetPayload } from "@/lib/apiClient";
 
 interface ManualAssetModalProps {
@@ -20,6 +20,7 @@ const COMMON_TICKERS = [
   { ticker: "PLTR", name: "팔란티어", market: "US", currency: "USD" },
   { ticker: "005930", name: "삼성전자", market: "KR", currency: "KRW" },
   { ticker: "000660", name: "SK하이닉스", market: "KR", currency: "KRW" },
+  { ticker: "035420", name: "NAVER", market: "KR", currency: "KRW" },
 ];
 
 const BROKERAGES = ["토스증권", "키움증권", "미래에셋증권", "카카오페이증권", "한국투자증권", "KB증권", "직접입력"];
@@ -39,8 +40,77 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
   const [currency, setCurrency] = useState<"USD" | "KRW">("USD");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [liveQuoteInfo, setLiveQuoteInfo] = useState<{ price: number; currency: string; name: string } | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const searchTimeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setTicker("");
+      setName("");
+      setQuantity("");
+      setPrice("");
+      setCashAmount("");
+      setLiveQuoteInfo(null);
+      setErrorMessage("");
+    }
+  }, [isOpen]);
+
+  // Real-time Stock Lookup when Ticker changes
+  useEffect(() => {
+    const cleanTicker = ticker.trim().toUpperCase();
+    if (!cleanTicker || txType === "CASH") {
+      setLiveQuoteInfo(null);
+      return;
+    }
+
+    // 1. Determine Market & Currency by pattern
+    const isKoreanCode = /^[0-9][0-9A-Z]{5}$/i.test(cleanTicker);
+    if (isKoreanCode) {
+      setMarket("KR");
+      setCurrency("KRW");
+    } else {
+      setMarket("US");
+      setCurrency("USD");
+    }
+
+    // 2. Debounced API Lookup to auto-fetch official Name and Live Price
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    setIsSearching(true);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/stocks?tickers=${cleanTicker}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.quotes?.[cleanTicker]) {
+            const q = json.data.quotes[cleanTicker];
+            setName(q.name || cleanTicker);
+            setMarket(q.market as "US" | "KR");
+            setCurrency(q.currency as "USD" | "KRW");
+            setLiveQuoteInfo({
+              price: q.currentPrice,
+              currency: q.currency,
+              name: q.name,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Stock lookup error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [ticker, txType]);
 
   if (!isOpen) return null;
 
@@ -51,19 +121,9 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
     setCurrency(item.currency as "USD" | "KRW");
   };
 
-  const handleTickerChange = (val: string) => {
-    const upper = val.toUpperCase();
-    setTicker(upper);
-    const matched = COMMON_TICKERS.find((t) => t.ticker === upper);
-    if (matched) {
-      setName(matched.name);
-      setMarket(matched.market as "US" | "KR");
-      setCurrency(matched.currency as "USD" | "KRW");
-    } else {
-      if (/^\d{6}$/.test(upper)) {
-        setMarket("KR");
-        setCurrency("KRW");
-      }
+  const handleApplyLivePrice = () => {
+    if (liveQuoteInfo && liveQuoteInfo.price > 0) {
+      setPrice(String(liveQuoteInfo.price));
     }
   };
 
@@ -296,27 +356,60 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#1b1c1d] mb-1">종목 코드 (티커) *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-[#1b1c1d]">종목 코드 (티커) *</label>
+                    {isSearching && (
+                      <span className="text-[10px] text-[#094cb2] font-semibold flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-xs animate-spin">sync</span> 조회중...
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={ticker}
-                    onChange={(e) => handleTickerChange(e.target.value)}
-                    placeholder="예: AAPL, NVDA, 005930"
+                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                    placeholder="예: AMZN, 035420, IONQ"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#c3c6d5] text-xs font-semibold focus:outline-none focus:border-[#094cb2]"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#1b1c1d] mb-1">종목명</label>
+                  <label className="block text-xs font-bold text-[#1b1c1d] mb-1">
+                    종목명 {name && <span className="text-[10px] text-emerald-600 font-normal">(자동 조회됨)</span>}
+                  </label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="예: 애플"
+                    placeholder={isSearching ? "종목명 조회 중..." : "예: 아마존닷컴"}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#c3c6d5] text-xs focus:outline-none focus:border-[#094cb2]"
                   />
                 </div>
               </div>
+
+              {/* Live Price Helper Badge */}
+              {liveQuoteInfo && liveQuoteInfo.price > 0 && (
+                <div className="p-3 bg-[#d9e2ff]/40 border border-[#094cb2]/20 rounded-2xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-[#094cb2] font-semibold">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>
+                      {liveQuoteInfo.name} 현재 실시간 시세:{" "}
+                      <strong>
+                        {liveQuoteInfo.currency === "KRW"
+                          ? `₩${liveQuoteInfo.price.toLocaleString()}`
+                          : `$${liveQuoteInfo.price.toLocaleString()}`}
+                      </strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleApplyLivePrice}
+                    className="px-2.5 py-1 bg-[#094cb2] text-white rounded-lg font-bold text-[10px] hover:bg-[#003da5] active:scale-95 transition-all shadow-xs"
+                  >
+                    체결단가로 적용
+                  </button>
+                </div>
+              )}
             </>
           )}
 
