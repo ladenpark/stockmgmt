@@ -281,34 +281,63 @@ export default function AlexandriaApp() {
     }
   };
 
-  // 포트폴리오 로컬 스토리지 영구 저장소에서 자동 복원
+  // 서버 및 로컬 스토리지에서 포트폴리오 자동 복원 (PC와 모바일 양방향 실시간 동기화)
   useEffect(() => {
-    try {
-      if (typeof window !== "undefined") {
-        const saved = localStorage.getItem("alexandria_portfolio_v1");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setStocks(parsed);
+    const loadPortfolio = async () => {
+      try {
+        // 1. 서버 중앙 저장소에서 먼저 최신 포트폴리오 조회
+        const res = await fetch("/api/portfolio/state");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            setStocks(json.data);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(json.data));
+            }
+            setIsPortfolioLoaded(true);
+            return;
           }
         }
+      } catch (err) {
+        console.error("서버 포트폴리오 로드 실패, 로컬 스토리지 폴백:", err);
       }
-    } catch (e) {
-      console.error("Failed to load portfolio from localStorage", e);
-    } finally {
-      setIsPortfolioLoaded(true);
-    }
+
+      // 2. 오프라인/네트워크 장애 시 localStorage 폴백
+      try {
+        if (typeof window !== "undefined") {
+          const saved = localStorage.getItem("alexandria_portfolio_v1");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setStocks(parsed);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load portfolio from localStorage", e);
+      } finally {
+        setIsPortfolioLoaded(true);
+      }
+    };
+
+    loadPortfolio();
   }, []);
 
-  // 포트폴리오 변경 시 로컬 스토리지에 영구 자동 저장 (초기 로드 완료 후에만 저장하여 덮어쓰기 방지)
+  // 포트폴리오 변경 시 서버와 로컬 스토리지에 동시 영구 저장 (PC-모바일 실시간 동기화)
   useEffect(() => {
     if (!isPortfolioLoaded) return;
     try {
       if (typeof window !== "undefined" && stocks && stocks.length > 0) {
         localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(stocks));
+        // 서버 DB/파일 저장소에 비동기 영구 기록
+        fetch("/api/portfolio/state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stocks }),
+        }).catch((e) => console.error("서버 포트폴리오 동기화 실패:", e));
       }
     } catch (e) {
-      console.error("Failed to save portfolio to localStorage", e);
+      console.error("Failed to save portfolio to storage", e);
     }
   }, [stocks, isPortfolioLoaded]);
 
