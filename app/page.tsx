@@ -8,6 +8,7 @@ import {
   CheckCircle, FilterList, AddCircle
 } from "@mui/icons-material"; // or Material symbols span
 import { motion, AnimatePresence } from "framer-motion";
+import ManualAssetModal from "@/components/ManualAssetModal";
 
 // Types
 type TabType = "home" | "daily" | "whatif" | "analysis" | "hub";
@@ -39,6 +40,7 @@ export default function AlexandriaApp() {
   const [isAddVirtualOpen, setIsAddVirtualOpen] = useState(false);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Exchange rate & Real-time Live State
@@ -777,13 +779,22 @@ export default function AlexandriaApp() {
                 <div className="pt-2 space-y-3">
                   <div className="flex items-center justify-between px-1">
                     <h3 className="font-headline text-xl font-bold text-[#1b1c1d]">보유 종목 리스트</h3>
-                    <button
-                      onClick={() => setIsFilterSheetOpen(true)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#efedee] text-xs font-label text-[#434653] font-semibold hover:bg-[#e9e8e9]"
-                    >
-                      <span className="material-symbols-outlined text-sm">filter_list</span>
-                      <span>전체 자산 필터</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsManualModalOpen(true)}
+                        className="flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-[#094cb2] text-white text-xs font-label font-bold hover:bg-[#003da5] active:scale-95 transition-all shadow-xs"
+                      >
+                        <span className="material-symbols-outlined text-sm">add</span>
+                        <span>종목 직접 등록</span>
+                      </button>
+                      <button
+                        onClick={() => setIsFilterSheetOpen(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#efedee] text-xs font-label text-[#434653] font-semibold hover:bg-[#e9e8e9]"
+                      >
+                        <span className="material-symbols-outlined text-sm">filter_list</span>
+                        <span>필터</span>
+                      </button>
+                    </div>
                   </div>
 
                     <div className="space-y-2.5">
@@ -1482,6 +1493,71 @@ export default function AlexandriaApp() {
           </div>
         </div>
       )}
+
+      {/* Manual Asset Registration Modal */}
+      <ManualAssetModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        exchangeRate={rate}
+        onSuccess={(newAsset) => {
+          const effectiveRate = rate || 1385.48;
+          const priceInUsd =
+            newAsset.currency === "KRW"
+              ? Number(newAsset.average_buy_price) / effectiveRate
+              : Number(newAsset.average_buy_price);
+
+          const newStockItem = {
+            id: `s_${newAsset.ticker.toLowerCase()}_${Date.now()}`,
+            name: newAsset.name || newAsset.ticker,
+            ticker: newAsset.ticker.toUpperCase(),
+            category: newAsset.market === "KR" ? "국내주식" : "해외주식",
+            market: (newAsset.market || "US") as "US" | "KR",
+            shares: Number(newAsset.quantity),
+            avgPriceUsd: Number(priceInUsd.toFixed(2)),
+            currentPriceUsd: Number(priceInUsd.toFixed(2)),
+            changePct: 0.0,
+            changeAmountUsd: 0.0,
+            marketStateLabel: newAsset.market === "KR" ? "장마감" : "프리마켓",
+            holdings: [
+              {
+                id: `h_${Date.now()}`,
+                brokerage: newAsset.brokerage || "기본 계좌",
+                shares: Number(newAsset.quantity),
+                avgPriceUsd: Number(priceInUsd.toFixed(2)),
+              },
+            ],
+            transactions: [
+              {
+                id: `tx_${Date.now()}`,
+                type: "매수",
+                date: newAsset.transacted_at || new Date().toISOString().slice(0, 10),
+                shares: Number(newAsset.quantity),
+                priceUsd: Number(priceInUsd.toFixed(2)),
+                brokerage: newAsset.brokerage || "기본 계좌",
+              },
+            ],
+          };
+
+          setStocks((prev) => {
+            const exists = prev.find((s) => s.ticker === newStockItem.ticker);
+            if (exists) {
+              return prev.map((s) =>
+                s.ticker === newStockItem.ticker
+                  ? {
+                      ...s,
+                      shares: s.shares + newStockItem.shares,
+                      holdings: [...s.holdings, ...newStockItem.holdings],
+                      transactions: [...s.transactions, ...newStockItem.transactions],
+                    }
+                  : s
+              );
+            }
+            return [newStockItem, ...prev];
+          });
+
+          showToast(`[${newStockItem.name}] 종목이 포트폴리오에 성공적으로 등록되었습니다.`);
+        }}
+      />
 
       {/* Floating Toast */}
       {toastMessage && (

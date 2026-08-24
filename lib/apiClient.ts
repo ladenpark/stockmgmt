@@ -1,4 +1,4 @@
-// API Client for Alexandria FastAPI Backend
+// API Client for Alexandria Backend & Next.js API Routes
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -47,13 +47,39 @@ export interface TransactionPayload {
   notes?: string;
 }
 
+export interface ManualAssetPayload {
+  brokerage: string;
+  ticker: string;
+  name?: string;
+  market?: "US" | "KR";
+  quantity: number;
+  average_buy_price: number;
+  currency?: "USD" | "KRW";
+  transacted_at?: string;
+}
+
+export interface ParsedRowItem {
+  row_index: number;
+  account: string;
+  date: string;
+  ticker: string;
+  name: string;
+  type: "BUY" | "SELL" | "DIVIDEND";
+  quantity: number;
+  price: number;
+  currency: "USD" | "KRW";
+  total_amount: number;
+  status: "VALID" | "WARNING" | "INVALID";
+  warning?: string;
+  selected?: boolean;
+}
+
 export async function fetchPortfolioSummary(): Promise<PortfolioSummary> {
   try {
     const res = await fetch(`${API_BASE_URL}/portfolio/summary`, { cache: "no-store" });
     if (!res.ok) throw new Error("Failed to fetch portfolio summary");
     return await res.json();
   } catch (err) {
-    console.warn("FastAPI offline, using fallback summary:", err);
     return {
       total_valuation_krw: 172540000,
       total_valuation_usd: 124500,
@@ -81,7 +107,6 @@ export async function fetchHoldings(filters?: { market?: string; account_id?: nu
     if (!res.ok) throw new Error("Failed to fetch holdings");
     return await res.json();
   } catch (err) {
-    console.warn("FastAPI offline, using fallback holdings:", err);
     return [
       { id: 1, account_id: 1, account_name: "Fidelity", asset_id: 1, ticker: "NVDA", asset_name: "엔비디아", market: "US", asset_type: "stock", quantity: 45, average_buy_price: 520, currency: "USD", current_price: 945.50, valuation: 42547.50, invested_cost: 23400.00, unrealized_pnl: 19147.50, return_pct: 81.83 },
       { id: 2, account_id: 1, account_name: "Fidelity", asset_id: 2, ticker: "AAPL", asset_name: "애플", market: "US", asset_type: "stock", quantity: 50, average_buy_price: 150, currency: "USD", current_price: 192.42, valuation: 9621.00, invested_cost: 7500.00, unrealized_pnl: 2121.00, return_pct: 28.28 },
@@ -100,5 +125,45 @@ export async function createTransaction(payload: TransactionPayload) {
     body: JSON.stringify(payload)
   });
   if (!res.ok) throw new Error("체결 등록 실패");
+  return await res.json();
+}
+
+export async function addManualAsset(payload: ManualAssetPayload) {
+  const res = await fetch("/api/portfolio/manual", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return await res.json();
+}
+
+export async function parseExcelFile(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/api/hub/upload-excel", {
+    method: "POST",
+    body: formData
+  });
+  return await res.json();
+}
+
+export async function parsePdfFile(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/api/hub/upload-pdf", {
+    method: "POST",
+    body: formData
+  });
+  return await res.json();
+}
+
+export async function commitBatchImport(items: ParsedRowItem[]) {
+  const res = await fetch("/api/hub/commit-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items })
+  });
   return await res.json();
 }

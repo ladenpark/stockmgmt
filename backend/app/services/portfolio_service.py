@@ -197,4 +197,108 @@ class PortfolioService:
             transactions=tx_items
         )
 
+    @staticmethod
+    async def add_manual_asset(
+        db: AsyncSession,
+        brokerage: str,
+        ticker: str,
+        name: str,
+        market: str,
+        quantity: float,
+        average_buy_price: float,
+        currency: str,
+        transacted_at: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """사용자가 직접 초기자산(계좌, 종목, 수량, 평단가)을 등록"""
+        clean_ticker = ticker.strip().upper()
+        clean_name = name.strip() or clean_ticker
+        clean_brokerage = brokerage.strip() or "기본 계좌"
+
+        # 1. 계좌 확인/생성
+        stmt_acc = select(Account).where(Account.name == clean_brokerage)
+        res_acc = await db.execute(stmt_acc)
+        account = res_acc.scalar_one_or_none()
+        if not account:
+            account = Account(
+                name=clean_brokerage,
+                brokerage=clean_brokerage,
+                account_number="MANUAL",
+                currency=currency,
+                is_active=True
+            )
+            db.add(account)
+            await db.flush()
+
+        # 2. 자산(Asset) 확인/생성
+        stmt_asset = select(Asset).where(Asset.ticker == clean_ticker)
+        res_asset = await db.execute(stmt_asset)
+        asset = res_asset.scalar_one_or_none()
+        if not asset:
+            asset = Asset(
+                ticker=clean_ticker,
+                name=clean_name,
+                market=market.upper(),
+                asset_type="stock",
+                currency=currency,
+                current_price=average_buy_price
+            )
+            db.add(asset)
+            await db.flush()
+
+        # 3. Holding(보유잔고) 확인/생성
+        stmt_holding = select(Holding).where(
+            Holding.account_id == account.id,
+            Holding.asset_id == asset.id
+        )
+        res_holding = await db.execute(stmt_holding)
+        holding = res_holding.scalar_one_or_none()
+
+        if holding:
+            # 기존 보유 수량 및 평단가 가중평균 갱신
+            total_qty = holding.quantity + quantity
+            if total_qty > 0:
+                holding.average_buy_price = (
+                    (holding.quantity * holding.average_buy_price) + (quantity * average_buy_price)
+                ) / total_qty
+                holding.quantity = total_qty
+        else:
+            holding = Holding(
+                account_id=account.id,
+                asset_id=asset.id,
+                quantity=quantity,
+                average_buy_price=average_buy_price,
+                currency=currency
+            )
+            db.add(holding)
+
+        # 4. 초기 매수 체결 Transaction 기록
+        tx_date = datetime.utcnow()
+        if transacted_at:
+            try:
+                tx_date = datetime.strptime(transacted_at[:10], "%Y-%m-%d")
+            except ValueError:
+                pass
+
+        tx = Transaction(
+            account_id=account.id,
+            asset_id=asset.id,
+            type="BUY",
+            quantity=quantity,
+            price=average_buy_price,
+            currency=currency,
+            notes="초기 자산 직접 등록",
+            transacted_at=tx_date
+        )
+        db.add(tx)
+        await db.commit()
+
+        return {
+            "success": True,
+            "message": f"[{clean_name}] {quantity}주가 {clean_brokerage}에 성공적으로 등록되었습니다.",
+            "holding_id": holding.id,
+            "ticker": clean_ticker,
+            "quantity": holding.quantity,
+            "average_buy_price": holding.average_buy_price
+        }
+
 portfolio_service = PortfolioService()

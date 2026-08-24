@@ -35,3 +35,34 @@ async def get_accounts(db: AsyncSession = Depends(get_db)):
     stmt = select(Account).where(Account.is_active == True)
     res = await db.execute(stmt)
     return res.scalars().all()
+
+@router.post("/assets/manual", summary="[Tab 1.1] 초기 자산 및 보유 종목 수동 직접 등록")
+async def add_manual_asset(
+    payload: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """사용자가 직접 계좌, 종목, 수량, 평단가를 입력하여 DB에 등록합니다."""
+    brokerage = payload.get("brokerage", "기본 계좌")
+    ticker = payload.get("ticker", "")
+    name = payload.get("name", ticker)
+    market = payload.get("market", "US")
+    quantity = float(payload.get("quantity", 0))
+    average_buy_price = float(payload.get("average_buy_price", 0))
+    currency = payload.get("currency", "USD")
+    transacted_at = payload.get("transacted_at")
+
+    if not ticker or quantity <= 0 or average_buy_price <= 0:
+        return {"success": False, "error": "종목코드, 수량, 매입단가를 올바르게 입력해주세요."}
+
+    return await portfolio_service.add_manual_asset(
+        db,
+        brokerage=brokerage,
+        ticker=ticker,
+        name=name,
+        market=market,
+        quantity=quantity,
+        average_buy_price=average_buy_price,
+        currency=currency,
+        transacted_at=transacted_at
+    )
+
