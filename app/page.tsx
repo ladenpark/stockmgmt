@@ -211,9 +211,24 @@ export default function AlexandriaApp() {
                     ? q.regularMarketChange / effectiveRate
                     : q.regularMarketChange;
 
+                const newPrice = Number(priceInUsd.toFixed(2));
+
+                // 이전 가격과 다르면 틱 플래시 효과 발동!
+                if (s.currentPriceUsd > 0 && Math.abs(newPrice - s.currentPriceUsd) >= 0.01) {
+                  const type = newPrice >= s.currentPriceUsd ? "UP" : "DOWN";
+                  setFlashingTicks((prevF) => ({ ...prevF, [s.ticker]: type }));
+                  setTimeout(() => {
+                    setFlashingTicks((prevF) => {
+                      const copy = { ...prevF };
+                      delete copy[s.ticker];
+                      return copy;
+                    });
+                  }, 800);
+                }
+
                 return {
                   ...s,
-                  currentPriceUsd: Number(priceInUsd.toFixed(2)),
+                  currentPriceUsd: newPrice,
                   changePct: Number((q.currentChangePercent || 0).toFixed(2)),
                   changeAmountUsd: Number(changeInUsd.toFixed(2)),
                 };
@@ -263,7 +278,7 @@ export default function AlexandriaApp() {
               const ticker = tick.ticker;
               const tickType = tick.tickType || "UP";
 
-              // 틱 플래시 효과 트리거 (600ms 동안 시각적 하이라이트)
+              // 틱 플래시 효과 트리거 (800ms 동안 시각적 하이라이트)
               setFlashingTicks((prev) => ({ ...prev, [ticker]: tickType }));
               setTimeout(() => {
                 setFlashingTicks((prev) => {
@@ -271,7 +286,7 @@ export default function AlexandriaApp() {
                   delete copy[ticker];
                   return copy;
                 });
-              }, 600);
+              }, 800);
 
               // 주가 및 등락률 실시간 업데이트
               setStocks((prev) =>
@@ -307,7 +322,7 @@ export default function AlexandriaApp() {
                 })
               );
             }
-          } catch (e) {
+          } catch {
             // ignore parse error
           }
         };
@@ -327,21 +342,18 @@ export default function AlexandriaApp() {
 
     connectWebSocket();
 
-    // 2. HTTP Polling Fallback (기본 3초)
+    // 2. 1.5초 주기 고속 실시간 REST 동기화
     fetchRealtimeQuotes();
-    let interval: any = null;
-    if (refreshInterval > 0) {
-      interval = setInterval(() => {
-        fetchRealtimeQuotes();
-      }, refreshInterval * 1000);
-    }
+    const interval = setInterval(() => {
+      fetchRealtimeQuotes();
+    }, 1500); // 1.5초마다 고속 갱신
 
     return () => {
       if (ws) ws.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
     };
-  }, [refreshInterval, rate]);
+  }, [rate]);
 
   // Format money helper
   const formatMoney = (usdVal: number) => {
