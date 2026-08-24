@@ -553,7 +553,7 @@ export async function fetchKRStockQuote(ticker: string): Promise<StockQuote> {
 // Stock Quote In-Memory Cache (TTL: 30 seconds)
 // --------------------------------------------------------------------------
 const quoteCacheMap = new Map<string, { data: StockQuote; timestamp: number }>();
-const QUOTE_CACHE_TTL_MS = 30 * 1000;
+const QUOTE_CACHE_TTL_MS = 2 * 1000; // 2초 초고속 실시간 캐시
 
 async function getCachedUSQuote(ticker: string, rate: number): Promise<StockQuote> {
   const now = Date.now();

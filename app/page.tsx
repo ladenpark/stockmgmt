@@ -45,6 +45,7 @@ export default function AlexandriaApp() {
   const [rate, setRate] = useState<number>(1385.48);
   const [isLiveLoading, setIsLiveLoading] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>("");
+  const [refreshInterval, setRefreshInterval] = useState<number>(3); // 3초 초고속 실시간 기본값
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -239,11 +240,12 @@ export default function AlexandriaApp() {
 
   useEffect(() => {
     fetchRealtimeQuotes();
+    if (refreshInterval <= 0) return;
     const interval = setInterval(() => {
       fetchRealtimeQuotes();
-    }, 10000); // 10초마다 자동 시세 갱신
+    }, refreshInterval * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshInterval]);
 
   // Format money helper
   const formatMoney = (usdVal: number) => {
@@ -596,15 +598,41 @@ export default function AlexandriaApp() {
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => fetchRealtimeQuotes(true)}
-                      disabled={isLiveLoading}
-                      className="px-3 py-1.5 bg-[#efedee] hover:bg-[#e9e8e9] active:scale-95 rounded-full text-xs font-label text-[#094cb2] font-semibold flex items-center gap-1.5 transition-all shadow-xs"
-                    >
-                      <span className={`inline-block w-2 h-2 rounded-full ${isLiveLoading ? "bg-[#3366cc] animate-ping" : "bg-[#22c55e]"}`} />
-                      <span>{isLiveLoading ? "갱신중..." : lastSyncTime ? `${lastSyncTime} 갱신` : "실시간 갱신"}</span>
-                      <span className={`material-symbols-outlined text-sm ${isLiveLoading ? "animate-spin" : ""}`}>refresh</span>
-                    </button>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-0.5 bg-[#efedee] p-0.5 rounded-full ghost-border">
+                        {[
+                          { sec: 3, label: "3초" },
+                          { sec: 5, label: "5초" },
+                          { sec: 10, label: "10초" },
+                          { sec: 0, label: "정지" },
+                        ].map((item) => (
+                          <button
+                            key={item.sec}
+                            onClick={() => {
+                              setRefreshInterval(item.sec);
+                              if (item.sec > 0) showToast(`${item.label} 실시간 갱신 모드로 변경되었습니다.`);
+                            }}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                              refreshInterval === item.sec
+                                ? "bg-[#094cb2] text-white shadow-xs"
+                                : "text-[#434653] hover:text-[#1b1c1d]"
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => fetchRealtimeQuotes(true)}
+                        disabled={isLiveLoading}
+                        className="px-2.5 py-1 bg-white hover:bg-[#efedee] active:scale-95 rounded-full text-[11px] font-label text-[#094cb2] font-semibold flex items-center gap-1 transition-all shadow-xs ghost-border"
+                      >
+                        <span className={`inline-block w-1.5 h-1.5 rounded-full ${isLiveLoading ? "bg-[#3366cc] animate-ping" : "bg-[#22c55e]"}`} />
+                        <span>{isLiveLoading ? "갱신중..." : lastSyncTime ? `${lastSyncTime} 갱신` : "지금 갱신"}</span>
+                        <span className={`material-symbols-outlined text-xs ${isLiveLoading ? "animate-spin" : ""}`}>refresh</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-5 pt-5 border-t border-[#c3c6d5]/50">
