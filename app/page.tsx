@@ -279,6 +279,34 @@ export default function AlexandriaApp() {
     }
   };
 
+  // 포트폴리오 로컬 스토리지 영구 저장소에서 자동 복원
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("alexandria_portfolio_v1");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStocks(parsed);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load portfolio from localStorage", e);
+    }
+  }, []);
+
+  // 포트폴리오 변경 시 로컬 스토리지에 영구 자동 저장 (새로고침/브라우저 재시작 시 유지)
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && stocks && stocks.length > 0) {
+        localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(stocks));
+      }
+    } catch (e) {
+      console.error("Failed to save portfolio to localStorage", e);
+    }
+  }, [stocks]);
+
   useEffect(() => {
     // 1. WebSocket 실시간 틱(Tick) 스트리밍 연결 (0.01초 체결)
     let ws: WebSocket | null = null;
