@@ -230,50 +230,11 @@ class HubService:
 
             # 정규식으로 감지되지 않은 경우 스마트 OCR 기본 예시 제공
             if not extracted_items:
-                extracted_items = [
-                    {
-                        "row_index": 1,
-                        "account": brokerage,
-                        "date": datetime.now().strftime("%Y-%m-%d"),
-                        "ticker": "NVDA",
-                        "name": "엔비디아",
-                        "type": "BUY",
-                        "quantity": 15.0,
-                        "price": 850.00,
-                        "currency": "USD",
-                        "total_amount": 12750.00,
-                        "status": "VALID",
-                        "selected": True
-                    },
-                    {
-                        "row_index": 2,
-                        "account": brokerage,
-                        "date": datetime.now().strftime("%Y-%m-%d"),
-                        "ticker": "AAPL",
-                        "name": "애플",
-                        "type": "BUY",
-                        "quantity": 25.0,
-                        "price": 180.00,
-                        "currency": "USD",
-                        "total_amount": 4500.00,
-                        "status": "VALID",
-                        "selected": True
-                    },
-                    {
-                        "row_index": 3,
-                        "account": brokerage,
-                        "date": datetime.now().strftime("%Y-%m-%d"),
-                        "ticker": "005930",
-                        "name": "삼성전자",
-                        "type": "BUY",
-                        "quantity": 100.0,
-                        "price": 72000.0,
-                        "currency": "KRW",
-                        "total_amount": 7200000.0,
-                        "status": "VALID",
-                        "selected": True
-                    }
-                ]
+                return {
+                    "success": False,
+                    "file_name": file_name,
+                    "error": "PDF에서 거래 내역을 추출하지 못했습니다. 현재는 텍스트형 PDF만 지원합니다."
+                }
 
             return {
                 "success": True,
@@ -319,7 +280,7 @@ class HubService:
                 if not account:
                     account = Account(
                         name=account_name,
-                        brokerage=account_name,
+                        brokerage_code="IMPORT",
                         account_number="DIRECT-SETUP",
                         currency=currency,
                         is_active=True
@@ -343,7 +304,7 @@ class HubService:
                     transacted_at=transacted_at,
                     notes=f"엑셀/PDF 일괄 등록 ({name})"
                 )
-                await transaction_service.create_transaction(db, tx_data)
+                await transaction_service.create_transaction(db, tx_data, commit=False)
                 imported_count += 1
 
             await db.commit()

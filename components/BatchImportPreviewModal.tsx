@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { commitBatchImport, ParsedRowItem } from "@/lib/apiClient";
 
 interface BatchImportPreviewModalProps {
@@ -61,12 +61,33 @@ export default function BatchImportPreviewModal({
     }
   };
 
+  // ESC key listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
   const selectedCount = items.filter((i) => i.selected).length;
   const isAllSelected = items.length > 0 && selectedCount === items.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-4xl rounded-3xl p-6 shadow-2xl border border-[#c3c6d5]/40 max-h-[90vh] flex flex-col">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn cursor-pointer"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full max-w-4xl rounded-3xl p-6 shadow-2xl border border-[#c3c6d5]/40 max-h-[90vh] flex flex-col cursor-default"
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#efedee]">
           <div className="flex items-center gap-3">
@@ -87,8 +108,17 @@ export default function BatchImportPreviewModal({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#efedee] text-[#434653]">
-            <span className="material-symbols-outlined text-lg">close</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
+            aria-label="닫기"
+            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#f5f3f4] hover:bg-[#efedee] text-[#1b1c1d] active:scale-90 transition-all cursor-pointer z-20"
+          >
+            <span className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
 

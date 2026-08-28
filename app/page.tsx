@@ -1,50 +1,121 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Menu, Tune, TrendingUp, TrendingDown, Star, ArrowBack,
-  Close, Add, Delete, UploadFile, PictureAsPdf, AccountBalance,
-  Payments, Monitoring, ReceiptLong, ShowChart, PieChart,
-  CheckCircle, FilterList, AddCircle
-} from "@mui/icons-material"; // or Material symbols span
+  Menu,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Plus,
+  ArrowLeft,
+  Star,
+  CheckCircle2,
+  TrendingUp,
+  SlidersHorizontal,
+  FileSpreadsheet,
+  FileText,
+  Download,
+  ReceiptText,
+  Calendar,
+  X,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ManualAssetModal from "@/components/ManualAssetModal";
 import BatchImportPreviewModal from "@/components/BatchImportPreviewModal";
+import { KeypadModal } from "@/components/KeypadModal";
+import { AccountsDrawer } from "@/components/AccountsDrawer";
+import { FilterModal } from "@/components/FilterModal";
+import { StockCard } from "@/components/StockCard";
+import { QuickNavButtons } from "@/components/QuickNavButtons";
+import { BottomNav } from "@/components/BottomNav";
+import { StatValue } from "@/components/ui/StatValue";
 import { parseExcelFile, parsePdfFile, ParsedRowItem } from "@/lib/apiClient";
+import { formatCurrency } from "@/lib/utils";
 
-// Types
-type TabType = "home" | "daily" | "transactions" | "whatif" | "analysis" | "hub";
-type AnalysisSubView = "dividend" | "profit" | "tax" | "trend" | "weight";
+type TabType = "home" | "transactions";
 type CurrencyType = "KRW" | "USD";
 
+type PortfolioSummary = {
+  total_valuation_usd: number;
+  total_invested_usd: number;
+  total_return_usd: number;
+  total_return_pct: number;
+  today_change_usd: number;
+  today_change_pct: number;
+  exchange_rate: number;
+};
+
+type PortfolioStock = {
+  id: string;
+  ticker: string;
+  name: string;
+  category: string;
+  market: string;
+  currency: string;
+  currentPriceUsd: number;
+  previousCloseUsd: number;
+  changePct: number;
+  changeAmountUsd: number;
+  shares: number;
+  avgPriceUsd: number;
+  realizedGainUsd: number;
+  marketStateLabel?: string;
+  holdings: Array<{ id: string; brokerage: string; shares: number; avgPriceUsd: number }>;
+  transactions: Array<{
+    id: string;
+    type: string;
+    date: string;
+    shares: number;
+    priceUsd: number;
+    brokerage: string;
+    notes?: string;
+    transactionId?: number;
+    accountId?: number;
+    currency?: "KRW" | "USD";
+    rawType?: "BUY" | "SELL" | "DIVIDEND";
+    transactedAt?: string;
+  }>;
+};
+
 export default function AlexandriaApp() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   // Navigation & View States
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [currency, setCurrency] = useState<CurrencyType>("KRW");
-  const [analysisSubView, setAnalysisSubView] = useState<AnalysisSubView>("dividend");
-  const [weightCategory, setWeightCategory] = useState<"stocks" | "assets" | "accounts">("stocks");
-  const [whatIfMode, setWhatIfMode] = useState<"divested" | "virtual">("divested");
+  const [hideAssetAmounts, setHideAssetAmounts] = useState<boolean>(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("전체");
+  const [selectedAccountFilter, setSelectedAccountFilter] = useState<string>("전체");
+  const [cardProfitMode, setCardProfitMode] = useState<"total" | "daily">("total");
   const [txFilterType, setTxFilterType] = useState<"ALL" | "매수" | "매도" | "배당">("ALL");
 
-  // Stock Detail (P-101) & Keypad (P-102) States
+  // Stock Detail & Keypad States
   const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
   const [detailSubTab, setDetailSubTab] = useState<"assets" | "transactions">("assets");
   const [isKeypadOpen, setIsKeypadOpen] = useState(false);
   const [keypadType, setKeypadType] = useState<"buy" | "sell" | "dividend">("buy");
-  const [keypadField, setKeypadField] = useState<"quantity" | "price">("quantity");
-  const [keypadQty, setKeypadQty] = useState("10");
-  const [keypadPrice, setKeypadPrice] = useState("192.42");
+  const [editingTransaction, setEditingTransaction] = useState<{
+    id: number;
+    account_id: number;
+    type: "BUY" | "SELL" | "DIVIDEND";
+    quantity: number;
+    price: number;
+    currency: "KRW" | "USD";
+    ticker: string;
+    stockName: string;
+    transacted_at?: string;
+  } | null>(null);
 
-  // Other Overlays & File Upload States
+  // Overlays
   const [isAccountDrawerOpen, setIsAccountDrawerOpen] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  const [isDailyDetailOpen, setIsDailyDetailOpen] = useState(false);
-  const [selectedDailyRow, setSelectedDailyRow] = useState<any>(null);
-  const [isAddVirtualOpen, setIsAddVirtualOpen] = useState(false);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [portfolioSummary, setPortfolioSummary] = useState<PortfolioSummary | null>(null);
 
-  // Excel / PDF Preview Modal States
+  // Batch Import
   const [isExcelLoading, setIsExcelLoading] = useState(false);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -55,446 +126,269 @@ export default function AlexandriaApp() {
   const excelInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
-  // Exchange rate & Real-time Live State
+  // Real-time State & Exchange Rate
   const [rate, setRate] = useState<number>(1385.48);
   const [isLiveLoading, setIsLiveLoading] = useState<boolean>(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>("");
-  const [refreshInterval, setRefreshInterval] = useState<number>(3); // 3초 초고속 실시간 기본값
-  const [isWsConnected, setIsWsConnected] = useState<boolean>(false);
-  const [flashingTicks, setFlashingTicks] = useState<Record<string, "UP" | "DOWN">>({});
+  const [isWsConnected, setIsWsConnected] = useState(false);
+  const [isPortfolioLoaded, setIsPortfolioLoaded] = useState(false);
+  const [stocks, setStocks] = useState<PortfolioStock[]>([]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const [isPortfolioLoaded, setIsPortfolioLoaded] = useState(false);
-
-  // Stock Database
-  const [stocks, setStocks] = useState([
-    {
-      id: "s_aapl",
-      ticker: "AAPL",
-      name: "애플",
-      category: "Technology",
-      market: "US",
-      currency: "USD",
-      currentPriceUsd: 192.42,
-      changePct: 1.25,
-      changeAmountUsd: 2.38,
-      shares: 80,
-      avgPriceUsd: 153.75,
-      realizedGainUsd: 3200.00,
-      holdings: [
-        { id: "h1", brokerage: "Fidelity Investments", shares: 50, avgPriceUsd: 150.00 },
-        { id: "h2", brokerage: "토스증권", shares: 30, avgPriceUsd: 160.00 }
-      ],
-      transactions: [
-        { id: "t1", type: "매수", date: "2024.05.10", shares: 10, priceUsd: 182.50, brokerage: "토스증권" },
-        { id: "t2", type: "매도", date: "2024.04.15", shares: 20, priceUsd: 175.00, brokerage: "Fidelity" },
-        { id: "t3", type: "매수", date: "2024.02.01", shares: 50, priceUsd: 150.00, brokerage: "Fidelity" }
-      ]
-    },
-    {
-      id: "s_nvda",
-      ticker: "NVDA",
-      name: "엔비디아",
-      category: "Semiconductors",
-      market: "US",
-      currency: "USD",
-      currentPriceUsd: 945.50,
-      changePct: 3.42,
-      changeAmountUsd: 31.20,
-      shares: 45,
-      avgPriceUsd: 520.00,
-      realizedGainUsd: 8500.00,
-      holdings: [
-        { id: "h3", brokerage: "Fidelity Investments", shares: 45, avgPriceUsd: 520.00 }
-      ],
-      transactions: [
-        { id: "t4", type: "매수", date: "2024.01.15", shares: 45, priceUsd: 520.00, brokerage: "Fidelity" }
-      ]
-    },
-    {
-      id: "s_msft",
-      ticker: "MSFT",
-      name: "마이크로소프트",
-      category: "Software",
-      market: "US",
-      currency: "USD",
-      currentPriceUsd: 428.15,
-      changePct: -0.45,
-      changeAmountUsd: -1.95,
-      shares: 40,
-      avgPriceUsd: 330.00,
-      realizedGainUsd: 1200.00,
-      holdings: [
-        { id: "h4", brokerage: "토스증권", shares: 40, avgPriceUsd: 330.00 }
-      ],
-      transactions: [
-        { id: "t5", type: "매수", date: "2024.03.01", shares: 40, priceUsd: 330.00, brokerage: "토스증권" }
-      ]
-    },
-    {
-      id: "s_samsung",
-      ticker: "005930",
-      name: "삼성전자",
-      category: "국내 대형주",
-      market: "KR",
-      currency: "KRW",
-      currentPriceUsd: 57.02,
-      changePct: 0.89,
-      changeAmountUsd: 0.50,
-      shares: 250,
-      avgPriceUsd: 49.08,
-      realizedGainUsd: 650.00,
-      holdings: [
-        { id: "h5", brokerage: "토스증권", shares: 250, avgPriceUsd: 49.08 }
-      ],
-      transactions: [
-        { id: "t6", type: "매수", date: "2024.02.10", shares: 250, priceUsd: 49.08, brokerage: "토스증권" }
-      ]
-    },
-    {
-      id: "s_tsla",
-      ticker: "TSLA",
-      name: "테슬라",
-      category: "EV / Clean Energy",
-      market: "US",
-      currency: "USD",
-      currentPriceUsd: 178.50,
-      changePct: 2.15,
-      changeAmountUsd: 3.75,
-      shares: 35,
-      avgPriceUsd: 190.00,
-      realizedGainUsd: -400.00,
-      holdings: [
-        { id: "h6", brokerage: "카카오페이증권", shares: 35, avgPriceUsd: 190.00 }
-      ],
-      transactions: [
-        { id: "t7", type: "매수", date: "2024.04.05", shares: 35, priceUsd: 190.00, brokerage: "카카오페이" }
-      ]
-    },
-    {
-      id: "s_o",
-      ticker: "O",
-      name: "리얼티 인컴",
-      category: "Real Estate (월배당)",
-      market: "US",
-      currency: "USD",
-      currentPriceUsd: 54.20,
-      changePct: 0.35,
-      changeAmountUsd: 0.19,
-      shares: 120,
-      avgPriceUsd: 52.00,
-      realizedGainUsd: 260.00,
-      holdings: [
-        { id: "h7", brokerage: "카카오페이증권", shares: 120, avgPriceUsd: 52.00 }
-      ],
-      transactions: [
-        { id: "t8", type: "배당", date: "2024.05.15", shares: 120, priceUsd: 0.256, brokerage: "카카오페이" }
-      ]
+  // Sync route query tab
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (requestedTab === "transactions") {
+      setSelectedStockId(null);
+      setActiveTab("transactions");
+    } else {
+      setActiveTab("home");
     }
-  ]);
+  }, [searchParams]);
 
-  const stocksRef = useRef(stocks);
-  stocksRef.current = stocks;
+  // Format money helper
+  const formatMoney = (valInUsd: number) => {
+    if (hideAssetAmounts) return "••••••";
+    if (currency === "KRW") {
+      const valKrw = Math.round(valInUsd * rate);
+      return `₩${valKrw.toLocaleString("ko-KR")}`;
+    }
+    return `$${valInUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
-  // 실시간 시세 및 환율 자동 수집 함수
-  const fetchRealtimeQuotes = async (manual = false, customTickers?: string[]) => {
+  // 1. Fetch Realtime Quotes from FastAPI
+  const fetchRealtimeQuotes = async (manual = false) => {
     if (manual) setIsLiveLoading(true);
     try {
-      const currentList = stocksRef.current;
-      const tickers = customTickers && customTickers.length > 0
-        ? customTickers.join(",")
-        : currentList.map((s) => s.ticker).join(",");
-      if (!tickers) return;
-
-      const res = await fetch(`/api/stocks?tickers=${tickers}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          const quotes = json.data.quotes || {};
-          const currentRate = json.data.exchangeRate?.rate;
-          if (currentRate && typeof currentRate === "number") {
-            setRate(currentRate);
-          }
-
-          setStocks((prev) =>
-            prev.map((s) => {
-              const q = quotes[s.ticker] || quotes[s.ticker.toUpperCase()];
-              if (q) {
-                const effectiveRate = currentRate || rate || 1385.48;
-                // 한국 주식(KRW)은 USD 기준 환산, 미국 주식(USD)은 그대로 적용
-                const priceInUsd =
-                  q.currency === "KRW"
-                    ? q.currentPrice / effectiveRate
-                    : q.currentPrice;
-                const changeInUsd =
-                  q.currency === "KRW"
-                    ? (q.regularMarketChange || 0) / effectiveRate
-                    : (q.regularMarketChange || 0);
-
-                const newPrice = Number(priceInUsd.toFixed(2));
-
-                // 이전 가격과 다르면 틱 플래시 효과 발동!
-                if (s.currentPriceUsd > 0 && Math.abs(newPrice - s.currentPriceUsd) >= 0.01) {
-                  const type = newPrice >= s.currentPriceUsd ? "UP" : "DOWN";
-                  setFlashingTicks((prevF) => ({ ...prevF, [s.ticker]: type }));
-                  setTimeout(() => {
-                    setFlashingTicks((prevF) => {
-                      const copy = { ...prevF };
-                      delete copy[s.ticker];
-                      return copy;
-                    });
-                  }, 800);
-                }
-
-                return {
-                  ...s,
-                  name: s.name && s.name !== s.ticker ? s.name : q.name || s.name,
-                  currentPriceUsd: newPrice,
-                  changePct: Number((q.currentChangePercent || 0).toFixed(2)),
-                  changeAmountUsd: Number(changeInUsd.toFixed(2)),
-                  marketStateLabel: q.marketStateLabel || (s.market === "KR" ? "장마감" : "프리마켓"),
-                };
-              }
-              return s;
-            })
-          );
-
-          const now = new Date();
-          setLastSyncTime(
-            now.toLocaleTimeString("ko-KR", {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })
-          );
-          if (manual) showToast("한국투자증권 실시간 시세가 갱신되었습니다.");
-        }
-      }
+      const [holdingsRes, summaryRes] = await Promise.all([
+        fetch("/api/backend/portfolio/holdings", { cache: "no-store" }),
+        fetch("/api/backend/portfolio/summary", { cache: "no-store" }),
+      ]);
+      if (!holdingsRes.ok || !summaryRes.ok) throw new Error("FastAPI 시세 동기화 실패");
+      const [holdings, summary] = await Promise.all([holdingsRes.json(), summaryRes.json()]);
+      const currentRate = Number(summary.exchange_rate || rate);
+      setRate(currentRate);
+      setPortfolioSummary(summary);
+      const quoteByTicker = new Map<string, any>(holdings.map((holding: any) => [holding.ticker, holding]));
+      setStocks((prev) =>
+        prev.map((stock) => {
+          const holding = quoteByTicker.get(stock.ticker);
+          if (!holding) return stock;
+          return {
+            ...stock,
+            name: holding.asset_name,
+            currentPriceUsd: holding.currency === "KRW" ? holding.current_price / currentRate : holding.current_price,
+            previousCloseUsd: holding.currency === "KRW" ? holding.previous_close / currentRate : holding.previous_close,
+            changeAmountUsd:
+              (holding.currency === "KRW" ? holding.current_price / currentRate : holding.current_price) -
+              (holding.currency === "KRW" ? holding.previous_close / currentRate : holding.previous_close),
+            changePct:
+              holding.previous_close > 0
+                ? ((holding.current_price - holding.previous_close) / holding.previous_close) * 100
+                : 0,
+          };
+        })
+      );
+      setLastSyncTime(
+        new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      );
+      if (manual) showToast("실시간 시세를 갱신했습니다.");
     } catch (err) {
-      console.error("실시간 시세 수집 오류:", err);
+      console.error("FastAPI 시세 동기화 오류:", err);
     } finally {
       if (manual) setIsLiveLoading(false);
     }
   };
 
-  // 서버 및 로컬 스토리지에서 포트폴리오 자동 복원 (PC와 모바일 양방향 실시간 동기화)
+  // 2. Load Portfolio Holdings & Transactions from DB
+  const loadPortfolio = async () => {
+    try {
+      const [holdingsRes, transactionsRes] = await Promise.all([
+        fetch("/api/backend/portfolio/holdings", { cache: "no-store" }),
+        fetch("/api/backend/transactions?limit=200", { cache: "no-store" }),
+      ]);
+
+      if (!holdingsRes.ok || !transactionsRes.ok) {
+        throw new Error("포트폴리오 DB 조회 실패");
+      }
+      const holdings = await holdingsRes.json();
+      const transactions = await transactionsRes.json();
+      const byTicker = new Map<string, any>();
+
+      for (const holding of holdings) {
+        const item = byTicker.get(holding.ticker) || {
+          id: `s_${holding.ticker.toLowerCase()}`,
+          ticker: holding.ticker,
+          name: holding.asset_name,
+          category: holding.asset_type,
+          market: holding.market,
+          currency: holding.currency,
+          currentPriceUsd: holding.currency === "KRW" ? holding.current_price / rate : holding.current_price,
+          previousCloseUsd: holding.currency === "KRW" ? holding.previous_close / rate : holding.previous_close,
+          changePct:
+            holding.previous_close > 0
+              ? ((holding.current_price - holding.previous_close) / holding.previous_close) * 100
+              : 0,
+          changeAmountUsd:
+            (holding.currency === "KRW" ? holding.current_price / rate : holding.current_price) -
+            (holding.currency === "KRW" ? holding.previous_close / rate : holding.previous_close),
+          shares: 0,
+          avgPriceUsd: 0,
+          realizedGainUsd: 0,
+          holdings: [],
+          transactions: [],
+        };
+        const priceInUsd = holding.currency === "KRW" ? holding.average_buy_price / rate : holding.average_buy_price;
+        const oldCost = item.shares * item.avgPriceUsd;
+        item.shares += holding.quantity;
+        item.avgPriceUsd = item.shares > 0 ? (oldCost + holding.quantity * priceInUsd) / item.shares : 0;
+        item.holdings.push({
+          id: `h_${holding.id}`,
+          brokerage: holding.account_name,
+          shares: holding.quantity,
+          avgPriceUsd: priceInUsd,
+        });
+        byTicker.set(holding.ticker, item);
+      }
+
+      for (const tx of transactions) {
+        const item = byTicker.get(tx.ticker);
+        if (!item) continue;
+        const priceInUsd = tx.currency === "KRW" ? tx.price / rate : tx.price;
+        item.realizedGainUsd += tx.type === "SELL" || tx.type === "DIVIDEND" ? Number(tx.realized_pnl || 0) : 0;
+        item.transactions.push({
+          id: `t_${tx.id}`,
+          type: tx.type === "BUY" ? "매수" : tx.type === "SELL" ? "매도" : "배당",
+          date: String(tx.transacted_at).slice(0, 10),
+          shares: tx.quantity,
+          priceUsd: priceInUsd,
+          brokerage: tx.account_name,
+          transactionId: tx.id,
+          accountId: tx.account_id,
+          currency: tx.currency,
+          rawType: tx.type,
+          transactedAt: String(tx.transacted_at).slice(0, 10),
+        });
+      }
+
+      if (byTicker.size > 0) setStocks(Array.from(byTicker.values()) as any);
+    } catch (err) {
+      console.error("포트폴리오 DB 로드 실패:", err);
+      showToast("포트폴리오 DB에 연결할 수 없습니다.");
+    } finally {
+      setIsPortfolioLoaded(true);
+    }
+  };
+
   useEffect(() => {
-    const loadPortfolio = async () => {
-      try {
-        // 1. 서버 중앙 저장소에서 먼저 최신 포트폴리오 조회
-        const res = await fetch("/api/portfolio/state");
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            setStocks(json.data);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(json.data));
-            }
-            setIsPortfolioLoaded(true);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error("서버 포트폴리오 로드 실패, 로컬 스토리지 폴백:", err);
-      }
-
-      // 2. 오프라인/네트워크 장애 시 localStorage 폴백
-      try {
-        if (typeof window !== "undefined") {
-          const saved = localStorage.getItem("alexandria_portfolio_v1");
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setStocks(parsed);
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load portfolio from localStorage", e);
-      } finally {
-        setIsPortfolioLoaded(true);
-      }
-    };
-
     loadPortfolio();
   }, []);
 
-  // 포트폴리오 변경 시 서버와 로컬 스토리지에 동시 영구 저장 (PC-모바일 실시간 동기화)
+  // 3. Fast 1-second REST Polling for single source of truth
   useEffect(() => {
-    if (!isPortfolioLoaded) return;
-    try {
-      if (typeof window !== "undefined" && stocks && stocks.length > 0) {
-        localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(stocks));
-        // 서버 DB/파일 저장소에 비동기 영구 기록
-        fetch("/api/portfolio/state", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ stocks }),
-        }).catch((e) => console.error("서버 포트폴리오 동기화 실패:", e));
-      }
-    } catch (e) {
-      console.error("Failed to save portfolio to storage", e);
-    }
-  }, [stocks, isPortfolioLoaded]);
-
-  useEffect(() => {
-    // 1. WebSocket 실시간 틱(Tick) 스트리밍 연결 (0.01초 체결)
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: any = null;
-
-    const connectWebSocket = () => {
-      if (typeof window === "undefined") return;
-      const wsUrl = "ws://localhost:8001";
-      try {
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-          setIsWsConnected(true);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === "TICK" && msg.data) {
-              const tick = msg.data;
-              const ticker = tick.ticker;
-              const tickType = tick.tickType || "UP";
-
-              // 틱 플래시 효과 트리거 (800ms 동안 시각적 하이라이트)
-              setFlashingTicks((prev) => ({ ...prev, [ticker]: tickType }));
-              setTimeout(() => {
-                setFlashingTicks((prev) => {
-                  const copy = { ...prev };
-                  delete copy[ticker];
-                  return copy;
-                });
-              }, 800);
-
-              // 주가 및 등락률 실시간 업데이트
-              setStocks((prev) =>
-                prev.map((s) => {
-                  if (s.ticker === ticker || s.ticker.toUpperCase() === ticker.toUpperCase()) {
-                    const effectiveRate = rate || 1385.48;
-                    const priceInUsd =
-                      tick.currency === "KRW"
-                        ? tick.currentPrice / effectiveRate
-                        : tick.currentPrice;
-                    const changeInUsd =
-                      tick.currency === "KRW"
-                        ? tick.changeAmount / effectiveRate
-                        : tick.changeAmount;
-
-                    return {
-                      ...s,
-                      currentPriceUsd: Number(priceInUsd.toFixed(2)),
-                      changePct: Number((tick.changePercent || 0).toFixed(2)),
-                      changeAmountUsd: Number(changeInUsd.toFixed(2)),
-                    };
-                  }
-                  return s;
-                })
-              );
-
-              const now = new Date();
-              setLastSyncTime(
-                now.toLocaleTimeString("ko-KR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })
-              );
-            }
-          } catch {
-            // ignore parse error
-          }
-        };
-
-        ws.onclose = () => {
-          setIsWsConnected(false);
-          reconnectTimeout = setTimeout(connectWebSocket, 5000);
-        };
-
-        ws.onerror = () => {
-          setIsWsConnected(false);
-        };
-      } catch {
-        setIsWsConnected(false);
-      }
-    };
-
-    connectWebSocket();
-
-    // 2. 1.5초 주기 고속 실시간 REST 동기화
     fetchRealtimeQuotes();
     const interval = setInterval(() => {
       fetchRealtimeQuotes();
-    }, 1500); // 1.5초마다 고속 갱신
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [rate]);
+
+  // 4. WebSocket Ticks Instant Live Broadcast
+  useEffect(() => {
+    let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isDisposed = false;
+
+    const connect = () => {
+      if (isDisposed) return;
+      try {
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        socket = new WebSocket(`${protocol}://${window.location.hostname}:8001`);
+
+        socket.onopen = () => {
+          setIsWsConnected(true);
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message?.type !== "TICK" || !message.data) return;
+            const tick = message.data;
+            const ticker = String(tick.ticker || "").toUpperCase();
+            const currentPrice = Number(tick.currentPrice);
+            if (!ticker || !Number.isFinite(currentPrice)) return;
+
+            setStocks((prev) =>
+              prev.map((s) => {
+                if (s.ticker.toUpperCase() !== ticker) return s;
+                const priceUsd = tick.currency === "KRW" ? currentPrice / rate : currentPrice;
+                const previousCloseUsd =
+                  Number(tick.previousClose) > 0
+                    ? tick.currency === "KRW"
+                      ? Number(tick.previousClose) / rate
+                      : Number(tick.previousClose)
+                    : s.previousCloseUsd > 0
+                    ? s.previousCloseUsd
+                    : priceUsd;
+                const changeAmountUsd = priceUsd - previousCloseUsd;
+                const changePct = previousCloseUsd > 0 ? (changeAmountUsd / previousCloseUsd) * 100 : 0;
+
+                return {
+                  ...s,
+                  currentPriceUsd: priceUsd,
+                  previousCloseUsd,
+                  changeAmountUsd,
+                  changePct,
+                };
+              })
+            );
+          } catch {
+            // ignore
+          }
+        };
+
+        socket.onclose = () => {
+          setIsWsConnected(false);
+          if (!isDisposed) reconnectTimer = setTimeout(connect, 3000);
+        };
+
+        socket.onerror = () => {
+          socket?.close();
+        };
+      } catch {
+        if (!isDisposed) reconnectTimer = setTimeout(connect, 3000);
+      }
+    };
+
+    connect();
 
     return () => {
-      if (ws) ws.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      clearInterval(interval);
+      isDisposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      socket?.close();
     };
   }, [rate]);
 
-  // Format money helper
-  const formatMoney = (usdVal: number) => {
-    if (currency === "KRW") {
-      const krw = Math.round(usdVal * rate);
-      return (krw < 0 ? "-₩" : "₩") + Math.abs(krw).toLocaleString();
+  const openTransactionEditor = (transaction: any, ticker: string, stockName: string) => {
+    if (!transaction.transactionId || !transaction.accountId || !transaction.rawType) {
+      showToast("거래 정보를 불러오는 중입니다. 잠시 후 다시 선택해주세요.");
+      return;
     }
-    return (usdVal < 0 ? "-$" : "$") + Math.abs(usdVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  // Excel & PDF File Upload Handlers
-  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsExcelLoading(true);
-    try {
-      const res = await parseExcelFile(file);
-      if (res.success && res.data && res.data.length > 0) {
-        setPreviewFileName(file.name);
-        setPreviewItems(res.data);
-        setPreviewBrokerage(undefined);
-        setPreviewModalOpen(true);
-      } else {
-        showToast(res.error || "엑셀 파일에서 유효한 데이터를 찾지 못했습니다.");
-      }
-    } catch (err: any) {
-      showToast(err.message || "파일 업로드 중 오류 발생");
-    } finally {
-      setIsExcelLoading(false);
-      if (excelInputRef.current) excelInputRef.current.value = "";
-    }
-  };
-
-  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsPdfLoading(true);
-    try {
-      const res = await parsePdfFile(file);
-      if (res.success && res.data && res.data.length > 0) {
-        setPreviewFileName(file.name);
-        setPreviewItems(res.data);
-        setPreviewBrokerage(res.brokerage_detected || "증권사 잔고명세서");
-        setPreviewModalOpen(true);
-      } else {
-        showToast(res.error || "PDF에서 종목 내역을 인식하지 못했습니다.");
-      }
-    } catch (err: any) {
-      showToast(err.message || "PDF 분석 중 오류 발생");
-    } finally {
-      setIsPdfLoading(false);
-      if (pdfInputRef.current) pdfInputRef.current.value = "";
-    }
+    setEditingTransaction({
+      id: transaction.transactionId,
+      account_id: transaction.accountId,
+      type: transaction.rawType,
+      quantity: transaction.shares,
+      price: transaction.currency === "KRW" ? transaction.priceUsd * rate : transaction.priceUsd,
+      currency: transaction.currency,
+      ticker,
+      stockName,
+      transacted_at: transaction.transactedAt,
+    });
   };
 
   // Calculations
@@ -502,1046 +396,593 @@ export default function AlexandriaApp() {
   const totalInvestedUsd = stocks.reduce((acc, s) => acc + s.shares * s.avgPriceUsd, 0);
   const totalReturnUsd = totalValuationUsd - totalInvestedUsd;
   const totalReturnPct = totalInvestedUsd > 0 ? (totalReturnUsd / totalInvestedUsd) * 100 : 0;
-  const todayGainUsd = stocks.reduce((acc, s) => acc + s.shares * s.changeAmountUsd, 0);
-  const todayGainPct = (todayGainUsd / (totalValuationUsd - todayGainUsd)) * 100;
+  const previousCloseValuationUsd = stocks.reduce((acc, s) => acc + s.shares * s.previousCloseUsd, 0);
+  const todayGainUsd = totalValuationUsd - previousCloseValuationUsd;
+  const todayGainPct = previousCloseValuationUsd > 0 ? (todayGainUsd / previousCloseValuationUsd) * 100 : 0;
 
-  // Selected Stock for P-101
+  const dashboardValuationUsd = totalValuationUsd;
+  const dashboardInvestedUsd = totalInvestedUsd;
+  const dashboardReturnUsd = totalReturnUsd;
+  const dashboardReturnPct = totalReturnPct;
+  const dashboardTodayUsd = todayGainUsd;
+  const dashboardTodayPct = todayGainPct;
+
+  const dashboardValuationDisplay = currency === "KRW" ? dashboardValuationUsd * rate : dashboardValuationUsd;
+  const dashboardInvestedDisplay = currency === "KRW" ? dashboardInvestedUsd * rate : dashboardInvestedUsd;
+  const dashboardReturnDisplay = currency === "KRW" ? dashboardReturnUsd * rate : dashboardReturnUsd;
+  const dashboardTodayDisplay = currency === "KRW" ? dashboardTodayUsd * rate : dashboardTodayUsd;
+
+  // Selected Stock for P-101 Detail
   const selectedStock = stocks.find((s) => s.id === selectedStockId) || stocks[0];
 
-  // Keypad Click handler
-  const handleKeypadPress = (val: string) => {
-    const cur = keypadField === "quantity" ? keypadQty : keypadPrice;
-    const setter = keypadField === "quantity" ? setKeypadQty : setKeypadPrice;
+  // StockCard Items transformation
+  const stockCardItems = stocks.map((s) => {
+    const evalUsd = s.shares * s.currentPriceUsd;
+    const costUsd = s.shares * s.avgPriceUsd;
+    const gainUsd = evalUsd - costUsd;
+    const dailyGainUsd = s.shares * s.changeAmountUsd;
 
-    if (val === "DEL") {
-      setter(cur.length <= 1 ? "0" : cur.slice(0, -1));
-    } else if (val === ".") {
-      if (!cur.includes(".")) setter(cur + ".");
-    } else {
-      setter(cur === "0" ? val : cur + val);
-    }
-  };
+    return {
+      id: s.id,
+      ticker: s.ticker,
+      name: s.name,
+      category: s.category || "주식",
+      account: (s.holdings && s.holdings[0]?.brokerage) || "일반",
+      accountsList: s.holdings ? s.holdings.map((h) => h.brokerage) : [],
+      currency: (s.currency === "KRW" ? "KRW" : "USD") as "KRW" | "USD",
+      market: (s.market === "KR" ? "KR" : "US") as "KR" | "US",
+      quantity: s.shares,
+      averagePrice: s.currency === "KRW" ? s.avgPriceUsd * rate : s.avgPriceUsd,
+      currentUnitPrice: s.currency === "KRW" ? s.currentPriceUsd * rate : s.currentPriceUsd,
+      evalAmountCurrency: s.currency === "KRW" ? evalUsd * rate : evalUsd,
+      evalKRW: evalUsd * rate,
+      costAmountCurrency: s.currency === "KRW" ? costUsd * rate : costUsd,
+      costKRW: costUsd * rate,
+      gainCurrency: s.currency === "KRW" ? gainUsd * rate : gainUsd,
+      gainKRW: gainUsd * rate,
+      gainPercent: ((s.currentPriceUsd - s.avgPriceUsd) / (s.avgPriceUsd || 1)) * 100,
+      dailyChangePercent: s.changePct,
+      dailyGainCurrency: s.currency === "KRW" ? dailyGainUsd * rate : dailyGainUsd,
+      dailyGainKRW: dailyGainUsd * rate,
+      marketStateLabel: s.marketStateLabel || "장중",
+    };
+  });
 
-  // Save Transaction
-  const handleSaveTransaction = () => {
-    const q = parseFloat(keypadQty) || 0;
-    const p = parseFloat(keypadPrice) || 0;
-    if (q <= 0 || p <= 0) {
-      alert("수량과 금액을 입력해주세요.");
-      return;
-    }
+  const categories = ["전체", ...Array.from(new Set(stocks.map((s) => s.category).filter(Boolean)))];
 
-    const updated = stocks.map((s) => {
-      if (s.id === selectedStock.id) {
-        let newShares = s.shares;
-        let newAvg = s.avgPriceUsd;
-        let newRealized = s.realizedGainUsd;
+  const filteredStockCardItems = stockCardItems.filter((item) => {
+    if (selectedCategory !== "전체" && item.category !== selectedCategory) return false;
+    if (selectedAccountFilter !== "전체" && !item.accountsList.includes(selectedAccountFilter)) return false;
+    return true;
+  });
 
-        if (keypadType === "buy") {
-          const oldCost = s.shares * s.avgPriceUsd;
-          newShares = s.shares + q;
-          newAvg = (oldCost + q * p) / newShares;
-        } else if (keypadType === "sell") {
-          newShares = Math.max(0, s.shares - q);
-          newRealized += q * (p - s.avgPriceUsd);
-        }
+  // All Transactions for Timeline
+  const allTx = stocks.flatMap((s) =>
+    s.transactions.map((t) => ({
+      ...t,
+      ticker: s.ticker,
+      stockName: s.name,
+      market: s.market,
+      currency: s.currency,
+      totalUsd: t.shares * t.priceUsd,
+      totalKRW: t.shares * t.priceUsd * rate,
+    }))
+  );
 
-        const newTx = {
-          id: "t_" + Date.now(),
-          type: keypadType === "buy" ? "매수" : keypadType === "sell" ? "매도" : "배당",
-          date: "2024.05.24",
-          shares: q,
-          priceUsd: p,
-          brokerage: "토스증권"
-        };
+  const filteredTx = (txFilterType === "ALL" ? allTx : allTx.filter((t) => t.type === txFilterType)).sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
-        return {
-          ...s,
-          shares: newShares,
-          avgPriceUsd: newAvg,
-          realizedGainUsd: newRealized,
-          transactions: [newTx, ...s.transactions]
-        };
-      }
-      return s;
-    });
-
-    setStocks(updated);
-    setIsKeypadOpen(false);
-    showToast(`${selectedStock.name} 체결 내역이 등록되었습니다.`);
-  };
-
-  // Daily Data Sample
-  const dailyData = [
-    {
-      date: "05.24",
-      dateFull: "2024-05-24",
-      totalUsd: 124500.0,
-      diffUsd: 1200.0,
-      diffPct: 0.97,
-      summaryTag: "AAPL, TSLA 상승",
-      details: [
-        { name: "Apple (AAPL)", price: 192.42, diffAmount: 2.38, diffPct: 1.25, shares: 80, gainUsd: 190.4 },
-        { name: "NVIDIA (NVDA)", price: 945.5, diffAmount: 18.5, diffPct: 2.0, shares: 45, gainUsd: 832.5 },
-        { name: "Tesla (TSLA)", price: 178.5, diffAmount: 3.75, diffPct: 2.15, shares: 35, gainUsd: 131.25 }
-      ]
-    },
-    {
-      date: "05.23",
-      dateFull: "2024-05-23",
-      totalUsd: 123300.0,
-      diffUsd: -450.0,
-      diffPct: -0.36,
-      summaryTag: "MSFT 조정",
-      details: [
-        { name: "Microsoft (MSFT)", price: 425.1, diffAmount: -5.2, diffPct: -1.21, shares: 40, gainUsd: -208.0 }
-      ]
-    },
-    {
-      date: "05.22",
-      dateFull: "2024-05-22",
-      totalUsd: 123750.0,
-      diffUsd: 800.0,
-      diffPct: 0.65,
-      summaryTag: "NVDA 실적 랠리",
-      details: [
-        { name: "NVIDIA (NVDA)", price: 927.0, diffAmount: 22.0, diffPct: 2.43, shares: 45, gainUsd: 990.0 }
-      ]
-    },
-    {
-      date: "05.21",
-      dateFull: "2024-05-21",
-      totalUsd: 122950.0,
-      diffUsd: 150.0,
-      diffPct: 0.12,
-      summaryTag: "보합세 마감",
-      details: [
-        { name: "Apple (AAPL)", price: 190.04, diffAmount: 0.8, diffPct: 0.42, shares: 80, gainUsd: 64.0 }
-      ]
-    }
-  ];
+  // Group transactions by date
+  const txGroupedByDate = filteredTx.reduce((acc, tx) => {
+    const d = tx.date;
+    if (!acc[d]) acc[d] = [];
+    acc[d].push(tx);
+    return acc;
+  }, {} as Record<string, typeof filteredTx>);
 
   return (
-    <div className="min-h-screen bg-[#faf9fa] text-[#1b1c1d] font-body pb-28">
-      {/* 1. TOP APP HEADER */}
-      <header className="fixed top-0 left-0 w-full z-40 bg-white/95 glass-nav border-b border-[#c3c6d5]/40">
-        <div className="max-w-4xl mx-auto px-4 md:px-8 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] pb-24 selection:bg-[#1366FF]/20 selection:text-[#1366FF]">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-[#0F172A] text-white px-4 py-2.5 rounded-xl shadow-modal text-xs font-semibold flex items-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 1. TOP APP HEADER (Screen 1 & 5) */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#E2E8F0] px-4 md:px-6 py-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsAccountDrawerOpen(true)}
-              className="w-9 h-9 rounded-full bg-[#f5f3f4] flex items-center justify-center text-[#094cb2] hover:bg-[#efedee] transition-colors"
+              className="w-9 h-9 rounded-xl bg-[#F1F5F9] hover:bg-[#E2E8F0] flex items-center justify-center text-[#0F172A] transition-colors"
+              aria-label="계좌 드로어 열기"
             >
-              <span className="material-symbols-outlined text-xl">menu</span>
+              <Menu className="w-5 h-5" strokeWidth={2} />
             </button>
-            <h1 className="font-headline font-bold text-lg md:text-xl text-[#1b1c1d] tracking-tight">
-              {selectedStockId ? "종목 상세" : activeTab === "home" ? "내 자산 포트폴리오" : activeTab === "daily" ? "데일리 손익" : activeTab === "whatif" ? "What-If 시뮬레이션" : activeTab === "analysis" ? "통합 분석 리포트" : "데이터 허브"}
+            <h1 className="text-base md:text-lg font-bold text-[#0F172A] tracking-tight">
+              {selectedStockId
+                ? "종목 상세"
+                : activeTab === "home"
+                ? "내 자산 포트폴리오"
+                : "거래내역"}
             </h1>
           </div>
 
-          {/* Right Header: Currency Toggle & Filter */}
+          {/* Right Action Icons: Currency Switch & Quick Icons */}
           <div className="flex items-center gap-2">
-            <div className="inline-flex bg-[#efedee] p-0.5 rounded-full ghost-border">
+            {/* Currency Pill Switch [KRW] [USD] */}
+            <div className="inline-flex bg-[#F1F5F9] p-0.5 rounded-xl border border-[#E2E8F0]">
               <button
                 onClick={() => setCurrency("KRW")}
-                className={`px-3 py-1 rounded-full font-label text-xs font-bold transition-all ${
-                  currency === "KRW" ? "bg-white shadow-xs text-[#094cb2]" : "text-[#434653]"
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  currency === "KRW"
+                    ? "bg-white text-[#1366FF] shadow-xs"
+                    : "text-[#64748B] hover:text-[#0F172A]"
                 }`}
               >
                 KRW
               </button>
               <button
                 onClick={() => setCurrency("USD")}
-                className={`px-3 py-1 rounded-full font-label text-xs font-bold transition-all ${
-                  currency === "USD" ? "bg-white shadow-xs text-[#094cb2]" : "text-[#434653]"
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  currency === "USD"
+                    ? "bg-white text-[#1366FF] shadow-xs"
+                    : "text-[#64748B] hover:text-[#0F172A]"
                 }`}
               >
                 USD
               </button>
             </div>
+
+            {/* Asset Amount Mask Toggle */}
             <button
-              onClick={() => setIsFilterSheetOpen(true)}
-              className="w-9 h-9 rounded-full bg-[#f5f3f4] flex items-center justify-center text-[#434653] hover:bg-[#efedee]"
+              onClick={() => setHideAssetAmounts(!hideAssetAmounts)}
+              className="w-9 h-9 rounded-xl bg-[#F1F5F9] hover:bg-[#E2E8F0] flex items-center justify-center text-[#64748B] transition-colors"
+              aria-label="금액 숨김 토글"
             >
-              <span className="material-symbols-outlined text-xl">tune</span>
+              {hideAssetAmounts ? (
+                <EyeOff className="w-4 h-4 text-[#EF4444]" />
+              ) : (
+                <Eye className="w-4 h-4 text-[#64748B]" />
+              )}
+            </button>
+
+            {/* Refresh Quotes */}
+            <button
+              onClick={() => fetchRealtimeQuotes(true)}
+              disabled={isLiveLoading}
+              className="w-9 h-9 rounded-xl bg-[#F1F5F9] hover:bg-[#E2E8F0] flex items-center justify-center text-[#64748B] transition-colors disabled:opacity-50"
+              aria-label="시세 새로고침"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLiveLoading ? "animate-spin text-[#1366FF]" : ""}`} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* 2. MAIN CONTAINER */}
-      <main className="pt-20 pb-20 px-4 md:px-8 max-w-4xl mx-auto w-full">
+      {/* Loading Overlay */}
+      {!isPortfolioLoaded && (
+        <div className="fixed inset-x-0 top-16 bottom-16 z-20 flex items-center justify-center bg-[#F8FAFC]/80 backdrop-blur-xs">
+          <div className="flex flex-col items-center gap-2.5 text-[#64748B]">
+            <RefreshCw className="w-6 h-6 animate-spin text-[#1366FF]" />
+            <span className="text-xs font-semibold">포트폴리오를 불러오는 중입니다...</span>
+          </div>
+        </div>
+      )}
+
+      {/* MAIN CONTAINER */}
+      <main className="max-w-4xl mx-auto px-4 md:px-6 pt-4 space-y-4">
         {/* ========================================================================= */}
-        {/* VIEW A: [P-101] STOCK DETAIL PAGE */}
+        {/* VIEW A: [P-101] STOCK DETAIL VIEW */}
         {/* ========================================================================= */}
         {selectedStockId ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setSelectedStockId(null)}
-                className="w-9 h-9 rounded-full bg-[#f5f3f4] flex items-center justify-center text-[#094cb2]"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E2E8F0] text-xs font-bold text-[#0F172A] hover:bg-[#F1F5F9] shadow-xs"
               >
-                <span className="material-symbols-outlined text-2xl">arrow_back</span>
+                <ArrowLeft className="w-4 h-4" />
+                <span>목록으로</span>
               </button>
-              <span className="font-label text-xs uppercase tracking-wider text-[#434653] font-bold">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
                 {selectedStock.category}
               </span>
-              <button onClick={() => showToast("관심 종목 등록 완료")} className="w-9 h-9 rounded-full bg-[#f5f3f4] flex items-center justify-center text-[#434653]">
-                <span className="material-symbols-outlined text-xl">star</span>
+              <button
+                onClick={() => showToast("관심 종목에 등록되었습니다.")}
+                className="w-9 h-9 rounded-xl bg-white border border-[#E2E8F0] flex items-center justify-center text-[#64748B] hover:text-[#F59E0B] shadow-xs"
+              >
+                <Star className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="text-center space-y-1">
-              <h2 className="font-headline text-3xl md:text-4xl font-bold text-[#1b1c1d]">
-                {selectedStock.name} ({selectedStock.ticker})
+            {/* Top Detail Card */}
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5 md:p-6 text-center space-y-2 shadow-xs">
+              <h2 className="text-xl md:text-2xl font-black text-[#0F172A]">
+                {selectedStock.name}{" "}
+                <span className="text-sm font-semibold text-[#64748B] uppercase">({selectedStock.ticker})</span>
               </h2>
-              <div className="font-headline text-4xl font-bold text-[#1b1c1d]">
+              <div className="text-3xl md:text-4xl font-extrabold text-[#0F172A] tracking-tight">
                 {formatMoney(selectedStock.currentPriceUsd)}
               </div>
-              <div className="text-base font-body text-[#094cb2] font-semibold flex items-center justify-center gap-1">
-                <span className="material-symbols-outlined text-lg">trending_up</span>
-                +{selectedStock.changePct}% (+{formatMoney(selectedStock.changeAmountUsd)})
+              <div className="pt-1">
+                <StatValue
+                  amount={currency === "KRW" ? selectedStock.changeAmountUsd * rate : selectedStock.changeAmountUsd}
+                  percent={selectedStock.changePct}
+                  currency={currency}
+                  size="md"
+                />
+              </div>
+
+              {/* 3 Metrics */}
+              <div className="grid grid-cols-3 gap-2 pt-4 mt-4 border-t border-[#F1F5F9]">
+                <div>
+                  <span className="text-[11px] font-medium text-[#64748B] block">총 평가금</span>
+                  <div className="text-sm md:text-base font-bold text-[#0F172A] mt-0.5">
+                    {formatMoney(selectedStock.shares * selectedStock.currentPriceUsd)}
+                  </div>
+                </div>
+                <div className="border-x border-[#F1F5F9]">
+                  <span className="text-[11px] font-medium text-[#64748B] block">매입 원금</span>
+                  <div className="text-sm md:text-base font-bold text-[#64748B] mt-0.5">
+                    {formatMoney(selectedStock.shares * selectedStock.avgPriceUsd)}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium text-[#64748B] block">총 수익률</span>
+                  <div className="mt-0.5">
+                    <StatValue
+                      amount={selectedStock.shares * (selectedStock.currentPriceUsd - selectedStock.avgPriceUsd) * (currency === "KRW" ? rate : 1)}
+                      percent={((selectedStock.currentPriceUsd - selectedStock.avgPriceUsd) / (selectedStock.avgPriceUsd || 1)) * 100}
+                      currency={currency}
+                      size="sm"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Metrics */}
-            <div className="grid grid-cols-3 gap-1 bg-white rounded-3xl ghost-border p-5 text-center shadow-xs">
-              <div>
-                <span className="font-label text-xs text-[#434653] block font-bold">총 평가금</span>
-                <div className="font-headline text-xl font-bold text-[#1b1c1d] mt-1">
-                  {formatMoney(selectedStock.shares * selectedStock.currentPriceUsd)}
-                </div>
-              </div>
-              <div className="border-x border-[#c3c6d5]/40">
-                <span className="font-label text-xs text-[#434653] block font-bold">매입 원금</span>
-                <div className="font-headline text-lg text-[#434653] mt-1">
-                  {formatMoney(selectedStock.shares * selectedStock.avgPriceUsd)}
-                </div>
-              </div>
-              <div>
-                <span className="font-label text-xs text-[#434653] block font-bold">총 수익률</span>
-                <div className="font-headline text-xl text-[#094cb2] font-bold mt-1">
-                  +{(((selectedStock.currentPriceUsd - selectedStock.avgPriceUsd) / selectedStock.avgPriceUsd) * 100).toFixed(2)}%
-                </div>
-              </div>
-            </div>
-
-            {/* Realized Profit Banner */}
-            <div className="p-4 bg-[#efedee] rounded-2xl flex justify-between items-center ghost-border shadow-xs">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-[#6d5e00] text-2xl">check_circle</span>
-                <span className="font-body text-sm font-semibold text-[#1b1c1d]">누적 확정 실현손익</span>
-              </div>
-              <span className="font-headline text-lg font-bold text-[#6d5e00]">{formatMoney(selectedStock.realizedGainUsd)}</span>
-            </div>
-
-            {/* Sub-Tabs */}
-            <div className="space-y-4">
-              <div className="flex justify-around border-b border-[#c3c6d5] font-label text-sm">
+            {/* Sub-Tabs: Assets & Transactions */}
+            <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-xs space-y-3">
+              <div className="flex gap-2 p-1 bg-[#F1F5F9] rounded-xl">
                 <button
                   onClick={() => setDetailSubTab("assets")}
-                  className={`pb-3 uppercase tracking-wider font-bold ${
-                    detailSubTab === "assets" ? "border-b-2 border-[#094cb2] text-[#094cb2]" : "text-[#434653]"
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    detailSubTab === "assets" ? "bg-white text-[#1366FF] shadow-xs" : "text-[#64748B]"
                   }`}
                 >
-                  자산 분할 보유 ({selectedStock.holdings.length})
+                  계좌별 보유 ({selectedStock.holdings.length})
                 </button>
                 <button
                   onClick={() => setDetailSubTab("transactions")}
-                  className={`pb-3 uppercase tracking-wider font-bold ${
-                    detailSubTab === "transactions" ? "border-b-2 border-[#094cb2] text-[#094cb2]" : "text-[#434653]"
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    detailSubTab === "transactions" ? "bg-white text-[#1366FF] shadow-xs" : "text-[#64748B]"
                   }`}
                 >
-                  체결 이력 타임라인 ({selectedStock.transactions.length})
+                  체결 이력 ({selectedStock.transactions.length})
                 </button>
               </div>
 
               {detailSubTab === "assets" ? (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {selectedStock.holdings.map((h) => (
-                    <div key={h.id} className="p-4 bg-white rounded-2xl ghost-border flex justify-between items-center shadow-xs">
+                    <div
+                      key={h.id}
+                      className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] flex justify-between items-center text-xs"
+                    >
                       <div>
-                        <div className="font-headline font-bold text-sm text-[#1b1c1d]">{h.brokerage}</div>
-                        <span className="font-body text-xs text-[#434653]">{h.shares}주 • 평단 {formatMoney(h.avgPriceUsd)}</span>
+                        <span className="font-bold text-[#0F172A] block">{h.brokerage}</span>
+                        <span className="text-[#64748B]">
+                          {h.shares}주 · 평단 {formatMoney(h.avgPriceUsd)}
+                        </span>
                       </div>
-                      <div className="text-right font-headline text-sm text-[#094cb2] font-bold">
-                        +{(((selectedStock.currentPriceUsd - h.avgPriceUsd) / h.avgPriceUsd) * 100).toFixed(2)}%
-                      </div>
+                      <StatValue
+                        amount={(selectedStock.currentPriceUsd - h.avgPriceUsd) * h.shares * (currency === "KRW" ? rate : 1)}
+                        percent={((selectedStock.currentPriceUsd - h.avgPriceUsd) / (h.avgPriceUsd || 1)) * 100}
+                        currency={currency}
+                        size="sm"
+                      />
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {selectedStock.transactions.map((t) => (
-                    <div key={t.id} className="p-4 bg-white rounded-2xl ghost-border flex justify-between items-center shadow-xs">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                            t.type === "매수" ? "bg-[#d9e2ff] text-[#094cb2]" : "bg-[#ffdad6] text-[#ba1a1a]"
-                          }`}>
-                            {t.type}
-                          </span>
-                          <span className="font-bold text-sm text-[#1b1c1d]">{t.brokerage}</span>
+                    <button
+                      key={t.id}
+                      onClick={() => openTransactionEditor(t, selectedStock.ticker, selectedStock.name)}
+                      className="w-full p-3 bg-[#F8FAFC] hover:bg-[#F1F5F9] rounded-xl border border-[#E2E8F0] flex justify-between items-center text-left text-xs transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                            t.type === "매수"
+                              ? "bg-blue-50 text-[#1366FF] border border-blue-100"
+                              : t.type === "매도"
+                              ? "bg-red-50 text-[#EF4444] border border-red-100"
+                              : "bg-amber-50 text-amber-600 border border-amber-100"
+                          }`}
+                        >
+                          {t.type}
+                        </span>
+                        <div>
+                          <span className="font-bold text-[#0F172A]">{t.brokerage}</span>
+                          <span className="text-[#64748B] block text-[11px]">{t.date}</span>
                         </div>
-                        <span className="text-xs text-[#434653] block mt-0.5">{t.date}</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-headline text-sm font-bold text-[#1b1c1d]">{t.shares}주</div>
-                        <span className="text-xs text-[#434653]">{formatMoney(t.priceUsd)}</span>
+                        <span className="font-bold text-[#0F172A] block">
+                          {t.shares}주 @ {formatMoney(t.priceUsd)}
+                        </span>
+                        <span className="text-[11px] text-[#64748B]">{formatMoney(t.shares * t.priceUsd)}</span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Floating Buy/Sell Bar */}
-            <div className="pt-4 flex gap-3">
-              <button
-                onClick={() => {
-                  setKeypadType("sell");
-                  setKeypadPrice(String(selectedStock.currentPriceUsd));
-                  setIsKeypadOpen(true);
-                }}
-                className="flex-1 py-3.5 rounded-2xl bg-[#e9e8e9] text-[#ba1a1a] font-label text-xs font-bold uppercase hover:bg-[#ffdad6]"
-              >
-                매도 (Sell)
-              </button>
-              <button
-                onClick={() => {
-                  setKeypadType("buy");
-                  setKeypadPrice(String(selectedStock.currentPriceUsd));
-                  setIsKeypadOpen(true);
-                }}
-                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-br from-[#094cb2] to-[#3366cc] text-white font-label text-xs font-bold uppercase shadow-md"
-              >
-                매수 (Buy)
-              </button>
             </div>
           </div>
         ) : (
           <>
             {/* ===================================================================== */}
-            {/* TAB 1: HOME (포트폴리오 대시보드) */}
+            {/* SCREEN 1: 포트폴리오 홈 / 대시보드 */}
             {/* ===================================================================== */}
             {activeTab === "home" && (
-              <section className="space-y-5">
-                {/* Total Assets Summary Card */}
-                <div className="bg-gradient-to-br from-white to-[#f5f3f4] rounded-3xl p-6 md:p-7 ghost-border shadow-xs">
-                  <div className="flex justify-between items-start">
+              <section className="space-y-4">
+                {/* 1. Main Valuation Card (Screen 1 Reference) */}
+                <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs p-5 md:p-6 space-y-4">
+                  {/* Card Header: Total Label & LIVE Badge */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-[#64748B]">총 자산 평가액</span>
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#DCFCE7] text-[#16A34A] font-bold text-[11px]">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16A34A] opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#16A34A]"></span>
+                      </span>
+                      <span>LIVE</span>
+                    </div>
+                  </div>
+
+                  {/* Large Valuation Amount & Exchange Rate */}
+                  <div>
+                    <div className="flex items-baseline gap-2.5 flex-wrap">
+                      <h2 className="text-2xl md:text-3xl font-black text-[#0F172A] tracking-tight">
+                        {hideAssetAmounts ? "••••••••" : formatCurrency(dashboardValuationDisplay, currency)}
+                      </h2>
+                      <span className="px-2 py-0.5 rounded-md bg-[#EBF2FF] text-[#1366FF] text-xs font-bold">
+                        ₩{rate.toLocaleString()}/$
+                      </span>
+                    </div>
+                    {lastSyncTime && (
+                      <p className="text-[11px] text-[#94A3B8] mt-1 font-medium">실시간 정산 {lastSyncTime}</p>
+                    )}
+                  </div>
+
+                  {/* 2-Column Stats: Total Return & Today Delta */}
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[#F1F5F9]">
                     <div>
-                      <span className="font-label text-xs uppercase tracking-wider text-[#434653] font-semibold">총 자산 평가금</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-headline text-3xl md:text-4xl font-bold text-[#1b1c1d]">
-                          {formatMoney(totalValuationUsd)}
-                        </span>
-                        <span className="text-[11px] font-label px-2 py-0.5 rounded-md bg-[#d9e2ff] text-[#094cb2] font-bold">
-                          ₩{rate.toLocaleString()}/$
-                        </span>
+                      <span className="text-xs font-medium text-[#64748B] block">총 투자수익</span>
+                      <div className="mt-1">
+                        {hideAssetAmounts ? (
+                          <span className="text-sm font-bold text-[#64748B]">••••••</span>
+                        ) : (
+                          <StatValue
+                            amount={dashboardReturnDisplay}
+                            percent={dashboardReturnPct}
+                            currency={currency}
+                            size="md"
+                          />
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-label text-xs font-bold ghost-border shadow-xs">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span>실시간 LIVE</span>
+                    <div>
+                      <span className="text-xs font-medium text-[#64748B] block">오늘의 변동 (Δ)</span>
+                      <div className="mt-1">
+                        {hideAssetAmounts ? (
+                          <span className="text-sm font-bold text-[#64748B]">••••••</span>
+                        ) : (
+                          <StatValue
+                            amount={dashboardTodayDisplay}
+                            percent={dashboardTodayPct}
+                            currency={currency}
+                            size="md"
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-5 pt-5 border-t border-[#c3c6d5]/50">
-                    <div>
-                      <span className="font-label text-xs text-[#434653] block">총 투자수익</span>
-                      <div className="font-body text-sm font-bold text-[#094cb2] flex items-center gap-1 mt-1">
-                        <span className="material-symbols-outlined text-base">trending_up</span>
-                        +{totalReturnPct.toFixed(2)}% (+{formatMoney(totalReturnUsd)})
-                      </div>
-                    </div>
-                    <div>
-                      <span className="font-label text-xs text-[#434653] block">오늘의 변동 (Δ)</span>
-                      <div className="font-body text-sm font-semibold text-[#094cb2] mt-1">
-                        +{formatMoney(todayGainUsd)} (+{todayGainPct.toFixed(2)}%)
-                      </div>
-                    </div>
-                    <div className="col-span-2 md:col-span-1 border-t md:border-t-0 pt-2 md:pt-0 border-[#c3c6d5]/40 flex md:flex-col justify-between md:justify-start">
-                      <span className="font-label text-xs text-[#434653] block">투자 매입 원금</span>
-                      <span className="font-headline text-sm font-semibold text-[#1b1c1d] mt-1">{formatMoney(totalInvestedUsd)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5 Quick Analysis Actions */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="font-label text-xs uppercase tracking-wider text-[#434653] font-bold">빠른 분석 바로가기</span>
-                    <span
-                      onClick={() => setActiveTab("analysis")}
-                      className="font-label text-xs text-[#094cb2] font-semibold cursor-pointer hover:underline"
-                    >
-                      전체보기 ›
+                  {/* Bottom Line: Total Invested Cost */}
+                  <div className="pt-3 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+                    <span className="text-[#64748B] font-medium">투자 매입 원금</span>
+                    <span className="font-bold text-[#0F172A]">
+                      {hideAssetAmounts ? "••••••" : formatCurrency(dashboardInvestedDisplay, currency)}
                     </span>
                   </div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {[
-                      { id: "profit", label: "수익", icon: "monitoring", color: "text-[#094cb2]" },
-                      { id: "tax", label: "세금", icon: "receipt_long", color: "text-[#6d5e00]" },
-                      { id: "dividend", label: "배당", icon: "payments", color: "text-[#094cb2]" },
-                      { id: "trend", label: "추이", icon: "show_chart", color: "text-[#434653]" },
-                      { id: "weight", label: "비중", icon: "pie_chart", color: "text-[#094cb2]" },
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          setAnalysisSubView(item.id as AnalysisSubView);
-                          setActiveTab("analysis");
-                        }}
-                        className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white ghost-border card-interactive shadow-xs"
-                      >
-                        <span className={`material-symbols-outlined ${item.color} text-2xl`}>{item.icon}</span>
-                        <span className="font-label text-xs font-semibold text-[#1b1c1d] mt-1">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
-                {/* Holdings List */}
-                <div className="pt-2 space-y-3">
-                  <div className="flex items-center justify-between px-1">
-                    <h3 className="font-headline text-xl font-bold text-[#1b1c1d]">보유 종목 리스트</h3>
+                {/* 2. Quick Analysis Action Tiles (Screen 1 Reference) */}
+                <QuickNavButtons />
+
+                {/* 3. Holdings Section (Screen 1 Reference) */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between gap-2 px-0.5">
                     <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold text-[#0F172A]">보유 종목</h2>
+                      <div className="flex bg-[#F1F5F9] p-0.5 rounded-xl border border-[#E2E8F0]">
+                        <button
+                          onClick={() => setCardProfitMode("total")}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                            cardProfitMode === "total"
+                              ? "bg-white text-[#1366FF] shadow-xs"
+                              : "text-[#64748B] hover:text-[#0F172A]"
+                          }`}
+                        >
+                          전체
+                        </button>
+                        <button
+                          onClick={() => setCardProfitMode("daily")}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                            cardProfitMode === "daily"
+                              ? "bg-white text-[#1366FF] shadow-xs"
+                              : "text-[#64748B] hover:text-[#0F172A]"
+                          }`}
+                        >
+                          일간
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => setIsManualModalOpen(true)}
-                        className="flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-[#094cb2] text-white text-xs font-label font-bold hover:bg-[#003da5] active:scale-95 transition-all shadow-xs"
+                        className="flex items-center gap-1 bg-[#1366FF] hover:bg-[#0D54DB] text-white px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95"
                       >
-                        <span className="material-symbols-outlined text-sm">add</span>
+                        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                         <span>종목 직접 등록</span>
                       </button>
                       <button
                         onClick={() => setIsFilterSheetOpen(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#efedee] text-xs font-label text-[#434653] font-semibold hover:bg-[#e9e8e9]"
+                        className="p-1.5 bg-white border border-[#E2E8F0] rounded-xl text-[#64748B] hover:bg-[#F1F5F9] shadow-xs"
+                        aria-label="필터"
                       >
-                        <span className="material-symbols-outlined text-sm">filter_list</span>
-                        <span>필터</span>
+                        <SlidersHorizontal className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
-                    <div className="space-y-2.5">
-                    {stocks.map((stock) => {
-                      const valUsd = stock.shares * stock.currentPriceUsd;
-                      const returnPct = ((stock.currentPriceUsd - stock.avgPriceUsd) / stock.avgPriceUsd) * 100;
-                      const isPos = returnPct >= 0;
-                      const tickFlash = flashingTicks[stock.ticker];
-
-                      return (
-                        <div
-                          key={stock.id}
-                          onClick={() => setSelectedStockId(stock.id)}
-                          className={`p-4.5 rounded-3xl ghost-border flex items-center justify-between cursor-pointer card-interactive shadow-xs transition-all duration-300 ${
-                            tickFlash === "UP"
-                              ? "bg-emerald-50/80 ring-2 ring-emerald-500 scale-[1.01]"
-                              : tickFlash === "DOWN"
-                              ? "bg-rose-50/80 ring-2 ring-rose-500 scale-[1.01]"
-                              : "bg-white"
-                          }`}
+                  {/* Stock Cards List */}
+                  <div className="space-y-2.5">
+                    {filteredStockCardItems.length === 0 ? (
+                      <div className="bg-white rounded-2xl border border-[#E2E8F0] p-8 text-center text-xs text-[#64748B] space-y-2">
+                        <p className="font-semibold">등록된 보유 종목이 없습니다.</p>
+                        <button
+                          onClick={() => setIsManualModalOpen(true)}
+                          className="text-[#1366FF] font-bold underline"
                         >
-                          <div className="flex items-center gap-3.5">
-                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-headline font-bold text-sm transition-colors ${
-                              tickFlash === "UP" ? "bg-emerald-200 text-emerald-800" : tickFlash === "DOWN" ? "bg-rose-200 text-rose-800" : "bg-[#efedee] text-[#094cb2]"
-                            }`}>
-                              {stock.ticker.slice(0, 3)}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-headline font-bold text-base text-[#1b1c1d]">{stock.name}</span>
-                                {tickFlash && (
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${tickFlash === "UP" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`}>
-                                    {tickFlash === "UP" ? "▲ TICK" : "▼ TICK"}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 font-body text-xs text-[#434653] mt-0.5">
-                                <span>{stock.ticker} • {stock.shares}주</span>
-                                {(stock as any).marketStateLabel && (
-                                  <span
-                                    className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
-                                      (stock as any).marketStateLabel === "프리마켓"
-                                        ? "bg-amber-100 text-amber-800"
-                                        : (stock as any).marketStateLabel === "데이마켓"
-                                        ? "bg-sky-100 text-sky-800"
-                                        : (stock as any).marketStateLabel === "애프터마켓"
-                                        ? "bg-purple-100 text-purple-800"
-                                        : (stock as any).marketStateLabel === "정규장"
-                                        ? "bg-emerald-100 text-emerald-800"
-                                        : "bg-gray-100 text-gray-600"
-                                    }`}
-                                  >
-                                    {(stock as any).marketStateLabel}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="font-headline font-bold text-base text-[#1b1c1d]">{formatMoney(valUsd)}</div>
-                            <div className={`font-body text-xs font-bold ${isPos ? "text-[#094cb2]" : "text-[#ba1a1a]"}`}>
-                              {isPos ? "+" : ""}{returnPct.toFixed(2)}%
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          + 새 종목 등록하기
+                        </button>
+                      </div>
+                    ) : (
+                      filteredStockCardItems.map((item) => (
+                        <StockCard
+                          key={item.id}
+                          item={item}
+                          currencyView={currency}
+                          profitViewMode={cardProfitMode}
+                          hideAssetAmounts={hideAssetAmounts}
+                          onClick={() => router.push(`/stock/${encodeURIComponent(item.ticker)}`)}
+                        />
+                      ))
+                    )}
                   </div>
                 </div>
               </section>
             )}
 
             {/* ===================================================================== */}
-            {/* TAB 2: DAILY PERFORMANCE */}
+            {/* SCREEN 5: 전체 거래내역 타임라인 */}
             {/* ===================================================================== */}
-            {activeTab === "daily" && (
-              <section className="space-y-5">
-                <div>
-                  <h2 className="font-headline text-2xl font-bold text-[#1b1c1d]">데일리 손익 퍼포먼스</h2>
-                  <p className="font-body text-xs text-[#434653] mt-0.5">일자별 자산 평가금 증감액(±Δ) 및 수익률 매트릭스</p>
+            {activeTab === "transactions" && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between px-0.5">
+                  <h2 className="text-base md:text-lg font-bold text-[#0F172A]">거래내역</h2>
+                  <button
+                    onClick={() => setIsManualModalOpen(true)}
+                    className="flex items-center gap-1 bg-[#1366FF] hover:bg-[#0D54DB] text-white px-3.5 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    <span>거래 등록</span>
+                  </button>
                 </div>
 
-                <div className="bg-white rounded-3xl ghost-border overflow-hidden shadow-xs">
-                  <table className="w-full text-left border-collapse min-w-[480px]">
-                    <thead className="bg-[#f5f3f4] border-b border-[#c3c6d5]/40">
-                      <tr>
-                        <th className="font-label text-xs uppercase text-[#434653] py-3.5 px-4 font-bold">일자</th>
-                        <th className="font-label text-xs uppercase text-[#434653] py-3.5 px-4 font-bold text-right">총 자산 평가액</th>
-                        <th className="font-label text-xs uppercase text-[#434653] py-3.5 px-4 font-bold text-right">일간 변동 (±Δ)</th>
-                        <th className="font-label text-xs uppercase text-[#434653] py-3.5 px-4 font-bold text-right">일간 수익률</th>
-                      </tr>
-                    </thead>
-                    <tbody className="font-body text-xs divide-y divide-[#c3c6d5]/20">
-                      {dailyData.map((row, idx) => {
-                        const isPos = row.diffUsd >= 0;
-                        return (
-                          <tr
-                            key={idx}
-                            onClick={() => {
-                              setSelectedDailyRow(row);
-                              setIsDailyDetailOpen(true);
-                            }}
-                            className="hover:bg-[#efedee] transition-colors cursor-pointer"
-                          >
-                            <td className="py-3.5 px-4 font-semibold text-[#1b1c1d]">{row.date}</td>
-                            <td className="py-3.5 px-4 text-right font-headline text-xs font-bold text-[#1b1c1d]">
-                              {formatMoney(row.totalUsd)}
-                            </td>
-                            <td className={`py-3.5 px-4 text-right font-semibold ${isPos ? "text-[#094cb2]" : "text-[#ba1a1a]"}`}>
-                              {isPos ? "+" : ""}{formatMoney(row.diffUsd)}
-                            </td>
-                            <td className="py-3.5 px-4 text-right">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                                  isPos ? "bg-[#d9e2ff] text-[#094cb2]" : "bg-[#ffdad6] text-[#ba1a1a]"
-                                }`}
-                              >
-                                {isPos ? "+" : ""}{row.diffPct}%
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  <div className="p-3 bg-[#f5f3f4] text-center font-label text-xs text-[#434653] border-t border-[#c3c6d5]/20">
-                    행을 클릭하시면 해당 일자의 종목별 마감 상세 바텀시트가 호출됩니다.
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* ===================================================================== */}
-            {/* TAB 3: WHAT-IF SIMULATION */}
-            {/* ===================================================================== */}
-            {activeTab === "whatif" && (
-              <section className="space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-headline text-2xl font-bold text-[#1b1c1d]">What-If 시뮬레이션</h2>
-                    <p className="font-body text-xs text-[#434653] mt-0.5">과거 매도 종목의 미매도 가정 기회비용 및 가상 보유 추적</p>
-                  </div>
-                  <div className="flex bg-[#efedee] p-1 rounded-full ghost-border">
+                {/* Filter Chips: [전체] [매수] [매도] [배당] */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                  {(["ALL", "매수", "매도", "배당"] as const).map((filter) => (
                     <button
-                      onClick={() => setWhatIfMode("divested")}
-                      className={`px-4 py-1.5 rounded-full font-label text-xs font-bold transition-all ${
-                        whatIfMode === "divested" ? "bg-white text-[#094cb2] shadow-xs" : "text-[#434653]"
+                      key={filter}
+                      onClick={() => setTxFilterType(filter)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                        txFilterType === filter
+                          ? "bg-[#1366FF] text-white shadow-xs"
+                          : "bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
                       }`}
                     >
-                      과거 매도 종목
-                    </button>
-                    <button
-                      onClick={() => setWhatIfMode("virtual")}
-                      className={`px-4 py-1.5 rounded-full font-label text-xs font-bold transition-all ${
-                        whatIfMode === "virtual" ? "bg-white text-[#094cb2] shadow-xs" : "text-[#434653]"
-                      }`}
-                    >
-                      가상 보유 (모의)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-white to-[#f5f3f4] rounded-3xl p-6 ghost-border shadow-xs">
-                  <span className="font-label text-[#6d5e00] uppercase tracking-widest text-xs font-bold">기회비용 & 회피손실 분석</span>
-                  <h3 className="font-headline text-xl font-bold text-[#1b1c1d] mt-1">"만약 팔지 않았다면?"</h3>
-                  <div className="flex justify-between items-end mt-4">
-                    <span className="font-label text-xs text-[#434653]">총 평가금 차액</span>
-                    <div className="text-right">
-                      <span className="font-headline text-3xl font-bold text-[#094cb2]">+₩6,234,750</span>
-                      <div className="font-body text-[#6d5e00] text-xs font-semibold flex items-center justify-end gap-1 mt-1">
-                        <span className="material-symbols-outlined text-sm">trending_up</span> 놓친 수익 (Foregone Gain)
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {whatIfMode === "divested" ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                      { ticker: "NVDA", name: "엔비디아", date: "2023.10", qty: 20, sell: 450, curr: 945.5, gain: 9910, tag: "최고 기회비용" },
-                      { ticker: "AAPL", name: "애플", date: "2023.01", qty: 30, sell: 145, curr: 192.42, gain: 1422.6, tag: "지속 상승" },
-                      { ticker: "LCID", name: "루시드", date: "2023.04", qty: 300, sell: 8.5, curr: 3.15, gain: -1605, tag: "손실 회피 성공" }
-                    ].map((item, idx) => (
-                      <div key={idx} className="p-5 bg-white rounded-3xl ghost-border shadow-xs space-y-2.5">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#efedee] text-[#434653]">{item.tag}</span>
-                            <h4 className="font-headline font-bold text-base text-[#1b1c1d] mt-1">{item.name} ({item.ticker})</h4>
-                            <span className="text-xs text-[#434653]">{item.date} • {item.qty}주</span>
-                          </div>
-                          <div className={`font-headline font-bold text-base ${item.gain >= 0 ? "text-[#094cb2]" : "text-[#ba1a1a]"}`}>
-                            {item.gain >= 0 ? "+" : ""}{formatMoney(item.gain)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                      { ticker: "PLTR", name: "팔란티어", entry: 16.5, curr: 25.8, qty: 100, gain: 930 },
-                      { ticker: "MU", name: "마이크론", entry: 85.0, curr: 128.5, qty: 50, gain: 2175 }
-                    ].map((item, idx) => (
-                      <div key={idx} className="p-5 bg-white rounded-3xl ghost-border shadow-xs space-y-2.5">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#efedee] text-[#434653]">가상 보유</span>
-                            <h4 className="font-headline font-bold text-base text-[#1b1c1d] mt-1">{item.name} ({item.ticker})</h4>
-                            <span className="text-xs text-[#434653]">{item.qty}주 • 매수 ${item.entry}</span>
-                          </div>
-                          <div className="font-headline font-bold text-base text-[#094cb2]">
-                            +{formatMoney(item.gain)}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* ===================================================================== */}
-            {/* TAB 4: INTEGRATED ANALYSIS REPORT */}
-            {/* ===================================================================== */}
-            {activeTab === "analysis" && (
-              <section className="space-y-5">
-                <div>
-                  <h2 className="font-headline text-2xl font-bold text-[#1b1c1d]">통합 분석 리포트</h2>
-                  <p className="font-body text-xs text-[#434653] mt-0.5">배당, 수익, 세금, 추이 및 비중 분석</p>
-                </div>
-
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                  {[
-                    { id: "dividend", label: "배당" },
-                    { id: "profit", label: "수익" },
-                    { id: "tax", label: "세금" },
-                    { id: "trend", label: "추이" },
-                    { id: "weight", label: "비중" }
-                  ].map((sub) => (
-                    <button
-                      key={sub.id}
-                      onClick={() => setAnalysisSubView(sub.id as AnalysisSubView)}
-                      className={`whitespace-nowrap px-5 py-2 rounded-full font-label text-xs font-bold transition-all ${
-                        analysisSubView === sub.id ? "bg-[#094cb2] text-white shadow-xs" : "bg-[#efedee] text-[#434653]"
-                      }`}
-                    >
-                      {sub.label}
+                      {filter === "ALL" ? "전체" : filter}
                     </button>
                   ))}
                 </div>
 
-                {/* 4.1 Dividend */}
-                {analysisSubView === "dividend" && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="bg-white rounded-3xl p-5 ghost-border shadow-xs">
-                        <span className="font-label text-xs font-bold text-[#434653] uppercase block">연간 예상 배당금 총액</span>
-                        <div className="font-headline text-3xl font-bold text-[#1b1c1d] mt-1">{formatMoney(2400)}</div>
-                        <span className="text-xs text-[#094cb2] font-semibold block mt-1">+12% vs 전년 동기</span>
-                      </div>
-                      <div className="bg-white rounded-3xl p-5 ghost-border shadow-xs">
-                        <span className="font-label text-xs font-bold text-[#434653] uppercase block">포트폴리오 배당 수익률</span>
-                        <div className="font-headline text-3xl font-bold text-[#1b1c1d] mt-1">3.52%</div>
-                        <span className="text-xs text-[#434653] block mt-1">시장 평균 상회</span>
-                      </div>
+                {/* Date Grouped Timeline */}
+                <div className="space-y-4">
+                  {Object.keys(txGroupedByDate).length === 0 ? (
+                    <div className="bg-white rounded-2xl border border-[#E2E8F0] p-10 text-center text-xs text-[#64748B] space-y-2">
+                      <ReceiptText className="w-8 h-8 text-[#CBD5E1] mx-auto" />
+                      <p className="font-bold">해당 내역이 없습니다.</p>
+                      <p>상단 [+ 거래 등록] 버튼을 눌러 첫 거래를 등록해보세요.</p>
                     </div>
-                  </div>
-                )}
-
-                {/* 4.2 Profit */}
-                {analysisSubView === "profit" && (
-                  <div className="bg-white rounded-3xl p-6 ghost-border space-y-4 shadow-xs">
-                    <div>
-                      <span className="font-label text-xs uppercase tracking-wider text-[#434653] font-bold">누적 합계 수익</span>
-                      <div className="font-headline text-3xl font-bold text-[#094cb2] mt-1">+₩42,500,000</div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[#c3c6d5]/40 text-xs">
-                      <div className="p-3.5 bg-[#f5f3f4] rounded-2xl">
-                        <span className="text-[#434653] block">미실현 평가손익</span>
-                        <div className="font-headline text-base font-bold text-[#094cb2] mt-1">+₩34,540,000</div>
-                      </div>
-                      <div className="p-3.5 bg-[#f5f3f4] rounded-2xl">
-                        <span className="text-[#434653] block">확정 실현손익</span>
-                        <div className="font-headline text-base font-bold text-[#6d5e00] mt-1">+₩4,635,000</div>
-                      </div>
-                      <div className="p-3.5 bg-[#f5f3f4] rounded-2xl">
-                        <span className="text-[#434653] block">누적 배당금</span>
-                        <div className="font-headline text-base font-bold text-[#094cb2] mt-1">+₩3,325,200</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 4.3 Tax (250만 공제 22%) */}
-                {analysisSubView === "tax" && (
-                  <div className="bg-white rounded-3xl p-6 ghost-border space-y-4 shadow-xs">
-                    <div>
-                      <span className="font-label text-xs uppercase tracking-wider text-[#6d5e00] font-bold">해외주식 양도소득세 계산기</span>
-                      <h3 className="font-headline text-xl font-bold text-[#1b1c1d] mt-0.5">2024년 예상 납부 세액 시뮬레이션</h3>
-                    </div>
-                    <div className="bg-[#f5f3f4] rounded-2xl p-4.5 space-y-3 text-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[#434653]">연간 확정 실현손익</span>
-                        <span className="font-semibold text-[#1b1c1d]">₩17,595,850</span>
-                      </div>
-                      <div className="flex justify-between items-center text-[#094cb2]">
-                        <span>기본 공제액 (연 1회)</span>
-                        <span className="font-semibold">- ₩2,500,000</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2.5 border-t border-[#c3c6d5]/40 font-semibold">
-                        <span>과세 표준 금액</span>
-                        <span className="text-[#1b1c1d]">₩15,095,850</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2.5 border-t border-[#c3c6d5]/40 font-bold">
-                        <span className="text-[#ba1a1a]">예상 납부 세액 (22%)</span>
-                        <span className="text-[#ba1a1a] font-headline text-xl">₩3,321,087</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 4.4 Trend */}
-                {analysisSubView === "trend" && (
-                  <div className="bg-white rounded-3xl p-6 ghost-border space-y-4 shadow-xs">
-                    <h3 className="font-headline text-lg font-bold text-[#1b1c1d]">자산 vs 원금 성장 곡선</h3>
-                    <div className="h-48 bg-[#f5f3f4] rounded-2xl flex items-center justify-center text-xs text-[#434653]">
-                      누적 투자 원금 ₩1.38억 대비 총 자산 ₩1.72억 (+25.03% 성장)
-                    </div>
-                  </div>
-                )}
-
-                {/* 4.5 Weight */}
-                {analysisSubView === "weight" && (
-                  <div className="bg-white rounded-3xl p-6 ghost-border space-y-4 shadow-xs">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-headline text-lg font-bold text-[#1b1c1d]">포트폴리오 비중</h3>
-                      <div className="flex gap-1.5 font-label text-xs">
-                        <button
-                          onClick={() => setWeightCategory("stocks")}
-                          className={`px-3 py-1 rounded-full ${weightCategory === "stocks" ? "bg-[#094cb2] text-white" : "bg-[#efedee] text-[#434653]"}`}
-                        >
-                          종목별
-                        </button>
-                        <button
-                          onClick={() => setWeightCategory("assets")}
-                          className={`px-3 py-1 rounded-full ${weightCategory === "assets" ? "bg-[#094cb2] text-white" : "bg-[#efedee] text-[#434653]"}`}
-                        >
-                          자산군
-                        </button>
-                        <button
-                          onClick={() => setWeightCategory("accounts")}
-                          className={`px-3 py-1 rounded-full ${weightCategory === "accounts" ? "bg-[#094cb2] text-white" : "bg-[#efedee] text-[#434653]"}`}
-                        >
-                          계좌별
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      {stocks.map((s) => {
-                        const pct = (((s.shares * s.currentPriceUsd) / totalValuationUsd) * 100).toFixed(1);
-                        return (
-                          <div key={s.id} className="flex justify-between items-center py-1.5 border-b border-[#c3c6d5]/20 text-xs">
-                            <span className="font-bold text-[#1b1c1d]">{s.name} ({s.ticker})</span>
-                            <span className="font-headline font-bold text-[#094cb2]">{pct}%</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* ===================================================================== */}
-            {/* TAB 3: ALL TRANSACTIONS HISTORY */}
-            {/* ===================================================================== */}
-            {activeTab === "transactions" && (
-              <section className="space-y-5">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h2 className="font-headline text-2xl font-bold text-[#1b1c1d]">전체 거래내역 타임라인</h2>
-                    <p className="font-body text-xs text-[#434653] mt-0.5">등록된 모든 계좌의 매수, 매도, 배당 체결 이력</p>
-                  </div>
-                  <button
-                    onClick={() => setIsManualModalOpen(true)}
-                    className="px-3.5 py-1.5 bg-[#094cb2] text-white rounded-full text-xs font-label font-bold flex items-center gap-1 shadow-xs hover:bg-[#003da5] active:scale-95 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span>
-                    <span>거래내역 직접 등록</span>
-                  </button>
-                </div>
-
-                {/* Transaction Summary Stats */}
-                {(() => {
-                  const allTx = stocks.flatMap((s) =>
-                    s.transactions.map((t) => ({
-                      ...t,
-                      ticker: s.ticker,
-                      stockName: s.name,
-                      currency: s.market === "KR" ? "KRW" : "USD",
-                      totalUsd: t.shares * t.priceUsd,
-                    }))
-                  );
-
-                  const buyTx = allTx.filter((t) => t.type === "매수");
-                  const sellTx = allTx.filter((t) => t.type === "매도");
-                  const divTx = allTx.filter((t) => t.type === "배당" || t.type === "배당금");
-
-                  const totalBuyAmountUsd = buyTx.reduce((acc, t) => acc + t.totalUsd, 0);
-                  const totalDivAmountUsd = divTx.reduce((acc, t) => acc + t.totalUsd, 0);
-
-                  const filteredTx = (txFilterType === "ALL" ? allTx : allTx.filter((t) => t.type === txFilterType)).sort(
-                    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-                  );
-
-                  return (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-3 gap-2.5">
-                        <div className="p-4 bg-white rounded-2xl ghost-border shadow-xs">
-                          <span className="text-[11px] font-label font-bold text-[#434653] block">총 거래 건수</span>
-                          <div className="font-headline text-xl font-bold text-[#1b1c1d] mt-1">{allTx.length}건</div>
-                        </div>
-                        <div className="p-4 bg-white rounded-2xl ghost-border shadow-xs">
-                          <span className="text-[11px] font-label font-bold text-[#434653] block">누적 매수 체결</span>
-                          <div className="font-headline text-xl font-bold text-[#094cb2] mt-1">{formatMoney(totalBuyAmountUsd)}</div>
-                        </div>
-                        <div className="p-4 bg-white rounded-2xl ghost-border shadow-xs">
-                          <span className="text-[11px] font-label font-bold text-[#434653] block">누적 배당 수령</span>
-                          <div className="font-headline text-xl font-bold text-[#6d5e00] mt-1">{formatMoney(totalDivAmountUsd)}</div>
-                        </div>
-                      </div>
-
-                      {/* Filter Chips */}
-                      <div className="flex items-center gap-1.5 bg-[#efedee] p-1 rounded-2xl w-fit">
-                        {(["ALL", "매수", "매도", "배당"] as const).map((filter) => (
-                          <button
-                            key={filter}
-                            onClick={() => setTxFilterType(filter)}
-                            className={`px-3.5 py-1.5 rounded-xl font-label text-xs font-bold transition-all ${
-                              txFilterType === filter
-                                ? "bg-white text-[#094cb2] shadow-xs"
-                                : "text-[#434653] hover:text-[#1b1c1d]"
-                            }`}
-                          >
-                            {filter === "ALL" ? "전체 보기" : filter}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Transaction List */}
-                      <div className="bg-white rounded-3xl ghost-border overflow-hidden shadow-xs divide-y divide-[#efedee]">
-                        {filteredTx.length === 0 ? (
-                          <div className="p-12 text-center text-[#434653] space-y-2">
-                            <span className="material-symbols-outlined text-4xl text-[#c3c6d5]">receipt_long</span>
-                            <div className="font-bold text-sm">해당 구분의 거래 내역이 없습니다.</div>
-                            <p className="text-xs">상단 [+ 거래내역 직접 등록] 버튼을 눌러 첫 거래를 등록해보세요.</p>
-                          </div>
-                        ) : (
-                          filteredTx.map((tx, idx) => (
-                            <div key={idx} className="p-4.5 flex items-center justify-between hover:bg-[#f9fafb] transition-colors">
-                              <div className="flex items-center gap-3.5">
-                                <div
-                                  className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs ${
+                  ) : (
+                    Object.entries(txGroupedByDate).map(([date, txList]) => (
+                      <div key={date} className="space-y-2">
+                        <div className="text-xs font-bold text-[#64748B] px-1">{date}</div>
+                        <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-xs divide-y divide-[#F1F5F9] overflow-hidden">
+                          {txList.map((tx, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => openTransactionEditor(tx, tx.ticker, tx.stockName)}
+                              className="w-full p-4 flex items-center justify-between hover:bg-[#F8FAFC] transition-colors text-left gap-3"
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <span
+                                  className={`px-2 py-1 rounded-lg text-xs font-bold shrink-0 ${
                                     tx.type === "매수"
-                                      ? "bg-[#d9e2ff] text-[#094cb2]"
+                                      ? "bg-blue-50 text-[#1366FF] border border-blue-100"
                                       : tx.type === "매도"
-                                      ? "bg-[#ffdad6] text-[#ba1a1a]"
-                                      : "bg-[#fef3c7] text-[#6d5e00]"
+                                      ? "bg-red-50 text-[#EF4444] border border-red-100"
+                                      : "bg-amber-50 text-amber-600 border border-amber-100"
                                   }`}
                                 >
                                   {tx.type}
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-headline font-bold text-sm text-[#1b1c1d]">{tx.stockName}</span>
-                                    <span className="text-xs text-[#434653]">({tx.ticker})</span>
-                                    <span className="px-2 py-0.5 rounded-md bg-[#efedee] text-[10px] font-semibold text-[#434653]">
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="font-bold text-sm text-[#0F172A] truncate">
+                                      {tx.stockName}
+                                    </span>
+                                    <span className="text-xs text-[#64748B] uppercase shrink-0">
+                                      {tx.ticker}
+                                    </span>
+                                    <span className="text-[10px] bg-[#F1F5F9] text-[#475569] px-1.5 py-0.5 rounded-md truncate max-w-[100px]">
                                       {tx.brokerage}
                                     </span>
                                   </div>
-                                  <div className="font-body text-xs text-[#434653] mt-0.5">
-                                    {tx.date} • {tx.shares.toLocaleString()}주 @ {formatMoney(tx.priceUsd)}
+                                  <div className="text-xs text-[#64748B] mt-0.5 truncate">
+                                    {tx.shares.toLocaleString()}주 @ {formatMoney(tx.priceUsd)}
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <div className="font-headline font-bold text-sm text-[#1b1c1d]">{formatMoney(tx.totalUsd)}</div>
-                                <span
-                                  className={`text-[11px] font-bold ${
-                                    tx.type === "매수" ? "text-[#094cb2]" : tx.type === "매도" ? "text-[#ba1a1a]" : "text-[#6d5e00]"
-                                  }`}
-                                >
-                                  {tx.type === "매수" ? "- 매수 지출" : tx.type === "매도" ? "+ 매도 수금" : "+ 배당금 입금"}
-                                </span>
+
+                              <div className="text-right shrink-0">
+                                <div className="text-sm font-bold text-[#0F172A] tracking-tight">
+                                  {formatMoney(tx.totalUsd)}
+                                </div>
                               </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </section>
-            )}
-
-            {/* ===================================================================== */}
-            {/* TAB 5: DATA HUB */}
-            {/* ===================================================================== */}
-            {activeTab === "hub" && (
-              <section className="space-y-5">
-                <div>
-                  <h2 className="font-headline text-2xl font-bold text-[#1b1c1d]">설정 & 데이터 허브</h2>
-                  <p className="font-body text-xs text-[#434653] mt-0.5">엑셀 일괄 동기화, 증권사 PDF 분석 및 초기 자산 관리</p>
-                </div>
-
-                {/* 1. Direct Manual Asset Setup Banner */}
-                <div className="bg-gradient-to-r from-[#094cb2] to-[#3366cc] rounded-3xl p-6 text-white shadow-md flex items-center justify-between">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-white/20 uppercase tracking-wider">초기 자산 관리</span>
-                    <h3 className="font-headline text-lg font-extrabold">내 보유 주식 / 초기자산 직접 등록</h3>
-                    <p className="font-body text-xs text-white/80">토스, 키움, 미래에셋 등 증권사별 보유 수량과 평단가를 직접 입력합니다.</p>
-                  </div>
-                  <button
-                    onClick={() => setIsManualModalOpen(true)}
-                    className="px-4 py-2.5 rounded-2xl bg-white text-[#094cb2] font-bold text-xs hover:bg-[#f5f3f4] active:scale-95 transition-all shadow-xs shrink-0 flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span>
-                    <span>직접 등록</span>
-                  </button>
-                </div>
-
-                {/* 2. Excel & PDF Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="bg-white rounded-3xl p-6 ghost-border space-y-3 card-interactive shadow-xs">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#d9e2ff] flex items-center justify-center text-[#094cb2]">
-                        <span className="material-symbols-outlined text-2xl">table_view</span>
-                      </div>
-                      <div>
-                        <h4 className="font-headline text-base font-bold text-[#1b1c1d]">Excel (.xlsx, .csv) 일괄 등록</h4>
-                        <p className="font-body text-xs text-[#434653]">증권사 엑셀 파일을 업로드하여 일괄 등록</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        disabled={isExcelLoading}
-                        onClick={() => excelInputRef.current?.click()}
-                        className="flex-1 py-2.5 rounded-xl bg-[#094cb2] text-white font-label text-xs font-bold hover:bg-[#003da5] active:scale-95 transition-all flex items-center justify-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-sm">upload_file</span>
-                        <span>{isExcelLoading ? "분석 중..." : "엑셀 파일 업로드"}</span>
-                      </button>
-                      <a
-                        href="/api/hub/template"
-                        download
-                        className="px-3.5 py-2.5 rounded-xl bg-[#efedee] text-[#1b1c1d] font-label text-xs font-semibold hover:bg-[#e9e8e9] active:scale-95 transition-all flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-sm">download</span>
-                        <span>양식 다운로드</span>
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-6 ghost-border space-y-3 card-interactive shadow-xs">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#bfab49]/30 flex items-center justify-center text-[#6d5e00]">
-                        <span className="material-symbols-outlined text-2xl">document_scanner</span>
-                      </div>
-                      <div>
-                        <h4 className="font-headline text-base font-bold text-[#1b1c1d]">증권사 PDF 스마트 분석</h4>
-                        <p className="font-body text-xs text-[#434653]">증권사 잔고명세서 PDF AI 자동 인식</p>
-                      </div>
-                    </div>
-                    <button
-                      disabled={isPdfLoading}
-                      onClick={() => pdfInputRef.current?.click()}
-                      className="w-full py-2.5 rounded-xl bg-[#efedee] text-[#1b1c1d] font-label text-xs font-bold hover:bg-[#e9e8e9] active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <span className="material-symbols-outlined text-sm text-[#094cb2]">picture_as_pdf</span>
-                      <span>{isPdfLoading ? "PDF 스마트 분석 중..." : "증권사 잔고명세서 PDF 업로드"}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3. Connected Accounts */}
-                <div className="bg-white rounded-3xl p-6 ghost-border space-y-3 shadow-xs">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-headline text-base font-bold text-[#1b1c1d]">연동 계좌 관리</h4>
-                    <button onClick={() => setIsManualModalOpen(true)} className="text-[#094cb2] font-label text-xs font-bold flex items-center gap-1 hover:underline">
-                      + 계좌/종목 추가
-                    </button>
-                  </div>
-                  <div className="space-y-2 text-xs font-body">
-                    <div className="flex items-center justify-between p-3.5 bg-[#f5f3f4] rounded-2xl">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[#094cb2] text-2xl">account_balance</span>
-                        <div>
-                          <div className="font-bold text-[#1b1c1d] text-sm">토스증권 / 카카오페이증권</div>
-                          <div className="text-xs text-[#434653]">해외 성장주 & 국내 배당주 계좌</div>
+                            </button>
+                          ))}
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">정상 연동</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 bg-[#f5f3f4] rounded-2xl">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[#094cb2] text-2xl">account_balance</span>
-                        <div>
-                          <div className="font-bold text-[#1b1c1d] text-sm">키움증권 / 미래에셋</div>
-                          <div className="text-xs text-[#434653]">국내 및 해외 주식 포트폴리오</div>
-                        </div>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">정상 연동</span>
-                    </div>
-                  </div>
+                    ))
+                  )}
                 </div>
               </section>
             )}
@@ -1549,443 +990,67 @@ export default function AlexandriaApp() {
         )}
       </main>
 
-      {/* 3. FIXED BOTTOM NAVIGATION BAR */}
-      {!selectedStockId && (
-        <nav className="fixed bottom-0 left-0 right-0 w-full h-16 bg-white/95 backdrop-blur-xl border-t border-[#c3c6d5]/40 flex justify-around items-center px-4 z-40 shadow-sm max-w-4xl mx-auto">
-          {[
-            { id: "home", label: "홈", icon: "account_balance_wallet" },
-            { id: "daily", label: "데일리", icon: "calendar_view_day" },
-            { id: "transactions", label: "거래내역", icon: "receipt_long" },
-            { id: "analysis", label: "분석", icon: "analytics" },
-            { id: "hub", label: "허브", icon: "tune" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setSelectedStockId(null);
-                setActiveTab(tab.id as TabType);
-              }}
-              className={`flex flex-col items-center justify-center flex-1 py-1.5 rounded-xl transition-all ${
-                activeTab === tab.id ? "text-[#094cb2] font-bold" : "text-[#434653] font-medium"
-              }`}
-            >
-              <span className="material-symbols-outlined text-2xl">{tab.icon}</span>
-              <span className="text-[11px] tracking-tight">{tab.label}</span>
-              {activeTab === tab.id && <span className="w-4 h-0.5 bg-[#094cb2] rounded-full mt-0.5" />}
-            </button>
-          ))}
-        </nav>
-      )}
+      {/* Global Bottom Navigation (Screen 1~6 Unified) */}
+      <BottomNav />
 
-      {/* 4. OVERLAYS & MODALS */}
-      {/* P-102 Keypad Modal */}
-      {isKeypadOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs">
-          <div className="relative z-10 w-full max-w-lg bg-white rounded-t-[32px] p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
-            <div className="w-10 h-1 bg-[#efedee] rounded-full mx-auto" />
-            <div className="flex justify-between items-center pb-2 border-b border-[#c3c6d5]/40">
-              <span className="font-headline font-bold text-lg text-[#1b1c1d]">{selectedStock.name} ({selectedStock.ticker})</span>
-              <button onClick={() => setIsKeypadOpen(false)} className="p-1 text-[#434653]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
+      {/* Overlays and Modals */}
+      <AccountsDrawer
+        isOpen={isAccountDrawerOpen}
+        onClose={() => setIsAccountDrawerOpen(false)}
+        selectedAccount={selectedAccountFilter}
+        onSelectAccount={(acc) => {
+          setSelectedAccountFilter(acc);
+          setIsAccountDrawerOpen(false);
+        }}
+        totalAssetKRW={dashboardValuationDisplay}
+        hideAssetAmounts={hideAssetAmounts}
+      />
 
-            <div className="flex bg-[#efedee] p-1 rounded-full">
-              {(["buy", "sell", "dividend"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setKeypadType(t)}
-                  className={`flex-1 py-2 rounded-full font-label text-xs font-bold transition-all ${
-                    keypadType === t
-                      ? t === "buy"
-                        ? "bg-[#094cb2] text-white shadow-xs"
-                        : t === "sell"
-                        ? "bg-[#ba1a1a] text-white shadow-xs"
-                        : "bg-[#6d5e00] text-white shadow-xs"
-                      : "text-[#434653]"
-                  }`}
-                >
-                  {t === "buy" ? "매수" : t === "sell" ? "매도" : "배당금"}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div
-                onClick={() => setKeypadField("quantity")}
-                className={`p-3.5 bg-[#efedee] rounded-2xl cursor-pointer ${keypadField === "quantity" ? "ring-2 ring-[#094cb2]" : ""}`}
-              >
-                <span className="font-label text-xs font-bold text-[#434653] block">수량 (주)</span>
-                <div className="font-headline text-2xl font-bold text-[#1b1c1d] mt-0.5">{keypadQty}</div>
-              </div>
-              <div
-                onClick={() => setKeypadField("price")}
-                className={`p-3.5 bg-[#efedee] rounded-2xl cursor-pointer ${keypadField === "price" ? "ring-2 ring-[#094cb2]" : ""}`}
-              >
-                <span className="font-label text-xs font-bold text-[#434653] block">체결단가 ($)</span>
-                <div className="font-headline text-2xl font-bold text-[#1b1c1d] mt-0.5">${keypadPrice}</div>
-              </div>
-              <div className="col-span-2 p-3.5 bg-[#f5f3f4] rounded-2xl border border-[#094cb2]/20 flex justify-between items-center">
-                <div>
-                  <span className="font-label text-xs font-bold text-[#434653] block">총 거래액</span>
-                  <div className="font-headline text-2xl font-bold text-[#094cb2] mt-0.5">
-                    ${((parseFloat(keypadQty) || 0) * (parseFloat(keypadPrice) || 0)).toFixed(2)}
-                  </div>
-                </div>
-                <span className="font-label text-xs font-semibold text-[#434653]">
-                  ≈ ₩{Math.round((parseFloat(keypadQty) || 0) * (parseFloat(keypadPrice) || 0) * rate).toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "DEL"].map((k) => (
-                <button
-                  key={k}
-                  onClick={() => handleKeypadPress(k)}
-                  className="keypad-btn py-3.5 rounded-2xl bg-[#efedee] font-headline text-xl font-bold text-[#1b1c1d] flex items-center justify-center"
-                >
-                  {k === "DEL" ? <span className="material-symbols-outlined text-[#ba1a1a]">backspace</span> : k}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={handleSaveTransaction}
-              className="w-full py-4 rounded-2xl bg-gradient-to-br from-[#094cb2] to-[#3366cc] text-white font-label text-sm font-bold shadow-md"
-            >
-              체결 내역 등록하기
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* P-202 Daily Detail Modal */}
-      {isDailyDetailOpen && selectedDailyRow && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs">
-          <div className="relative z-10 w-full max-w-lg bg-white rounded-t-[32px] p-6 shadow-2xl space-y-4">
-            <div className="w-10 h-1 bg-[#efedee] rounded-full mx-auto" />
-            <div className="flex justify-between items-center">
-              <h3 className="font-headline font-bold text-xl text-[#1b1c1d]">{selectedDailyRow.dateFull} 마감 요약</h3>
-              <button onClick={() => setIsDailyDetailOpen(false)} className="p-1 text-[#434653]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="p-4 bg-[#f5f3f4] rounded-2xl ghost-border flex justify-between items-center">
-              <div>
-                <span className="font-label text-xs text-[#434653] block">총 자산 평가액</span>
-                <div className="font-headline text-2xl font-bold text-[#1b1c1d]">{formatMoney(selectedDailyRow.totalUsd)}</div>
-              </div>
-              <div className="text-right">
-                <span className="font-label text-xs text-[#434653] block">일간 변동</span>
-                <div className={`font-headline text-2xl font-bold ${selectedDailyRow.diffUsd >= 0 ? "text-[#094cb2]" : "text-[#ba1a1a]"}`}>
-                  {selectedDailyRow.diffUsd >= 0 ? "+" : ""}{formatMoney(selectedDailyRow.diffUsd)}
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {selectedDailyRow.details.map((d: any, i: number) => (
-                <div key={i} className="p-3 bg-[#faf9fa] rounded-xl flex justify-between items-center ghost-border text-xs">
-                  <div>
-                    <div className="font-bold text-[#1b1c1d]">{d.name}</div>
-                    <span className="text-[#434653]">${d.price} • {d.shares}주</span>
-                  </div>
-                  <div className={`font-bold ${d.diffAmount >= 0 ? "text-[#094cb2]" : "text-[#ba1a1a]"}`}>
-                    {d.diffAmount >= 0 ? "+" : ""}${d.gainUsd} ({d.diffPct >= 0 ? "+" : ""}{d.diffPct}%)
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Account Drawer */}
-      {isAccountDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setIsAccountDrawerOpen(false)} />
-          <div className="relative z-10 w-4/5 max-w-xs h-full bg-white shadow-2xl p-6 flex flex-col justify-between">
-            <div className="space-y-5">
-              <div className="flex items-center justify-between border-b border-[#c3c6d5]/40 pb-3">
-                <h3 className="font-headline font-bold text-xl text-[#094cb2]">내 연동 계좌</h3>
-                <button onClick={() => setIsAccountDrawerOpen(false)} className="p-1 text-[#434653]">
-                  <span className="material-symbols-outlined">close</span>
-                </button>
-              </div>
-              <div className="space-y-2.5 text-xs">
-                <div className="p-3 bg-[#d9e2ff]/40 rounded-xl font-semibold text-[#094cb2]">전체 계좌 통합 보기</div>
-                <div className="p-3 hover:bg-[#efedee] rounded-xl cursor-pointer">
-                  <div className="font-bold text-[#1b1c1d] text-sm">Fidelity Investments</div>
-                  <div className="text-xs text-[#434653] mt-0.5">$65,420.00 (+28.5%)</div>
-                </div>
-                <div className="p-3 hover:bg-[#efedee] rounded-xl cursor-pointer">
-                  <div className="font-bold text-[#1b1c1d] text-sm">토스증권</div>
-                  <div className="text-xs text-[#434653] mt-0.5">$34,615.00 (+32.1%)</div>
-                </div>
-                <div className="p-3 hover:bg-[#efedee] rounded-xl cursor-pointer">
-                  <div className="font-bold text-[#1b1c1d] text-sm">카카오페이증권</div>
-                  <div className="text-xs text-[#434653] mt-0.5">$13,063.00 (+14.2%)</div>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setIsAccountDrawerOpen(false);
-                setActiveTab("hub");
-              }}
-              className="w-full py-3 rounded-xl bg-[#efedee] text-[#1b1c1d] font-label text-xs font-bold"
-            >
-              계좌 관리 설정
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter BottomSheet */}
-      {isFilterSheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-xs">
-          <div className="relative z-10 w-full max-w-lg bg-white rounded-t-[32px] p-6 shadow-2xl space-y-4">
-            <div className="w-10 h-1 bg-[#efedee] rounded-full mx-auto" />
-            <div className="flex justify-between items-center">
-              <h3 className="font-headline font-bold text-xl text-[#1b1c1d]">자산군 및 국가 필터</h3>
-              <button onClick={() => setIsFilterSheetOpen(false)} className="p-1 text-[#434653]">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-            <div className="space-y-3 text-xs">
-              <span className="font-bold text-[#434653] block">국가</span>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 rounded-xl bg-[#094cb2] text-white font-bold">전체</button>
-                <button className="px-4 py-2 rounded-xl bg-[#efedee] text-[#1b1c1d]">미국 (US)</button>
-                <button className="px-4 py-2 rounded-xl bg-[#efedee] text-[#1b1c1d]">한국 (KR)</button>
-              </div>
-              <span className="font-bold text-[#434653] block pt-2">자산군</span>
-              <div className="flex gap-2">
-                <button className="px-4 py-2 rounded-xl bg-[#094cb2] text-white font-bold">주식 / ETF</button>
-                <button className="px-4 py-2 rounded-xl bg-[#efedee] text-[#1b1c1d]">연금</button>
-                <button className="px-4 py-2 rounded-xl bg-[#efedee] text-[#1b1c1d]">암호화폐</button>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setIsFilterSheetOpen(false);
-                showToast("필터가 적용되었습니다.");
-              }}
-              className="w-full py-3.5 rounded-xl bg-[#094cb2] text-white font-label text-xs font-bold"
-            >
-              적용하기
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Manual Asset Registration Modal */}
-      <ManualAssetModal
-        isOpen={isManualModalOpen}
-        onClose={() => setIsManualModalOpen(false)}
-        exchangeRate={rate}
-        onSuccess={(txData) => {
-          const effectiveRate = rate || 1385.48;
-          const rawPrice = Number(txData.price || txData.average_buy_price || txData.amount || 0);
-          const priceInUsd =
-            txData.currency === "KRW" ? rawPrice / effectiveRate : rawPrice;
-          const qty = Number(txData.quantity || 1);
-          const ticker = String(txData.ticker || "CASH").toUpperCase();
-          const txTypeLabel = txData.displayType || (txData.type === "BUY" ? "매수" : txData.type === "SELL" ? "매도" : txData.type === "DIVIDEND" ? "배당" : txData.type === "DEPOSIT" ? "입금" : "출금");
-
-          const newTransaction = {
-            id: `tx_${Date.now()}`,
-            type: txTypeLabel,
-            date: txData.transacted_at || new Date().toISOString().slice(0, 10),
-            shares: qty,
-            priceUsd: Number(priceInUsd.toFixed(2)),
-            brokerage: txData.brokerage || "기본 계좌",
-            notes: txData.notes || "",
-          };
-
-          setStocks((prev) => {
-            const copy = [...prev];
-            const existingIndex = copy.findIndex((s) => s.ticker === ticker);
-
-            if (existingIndex >= 0) {
-              const s = copy[existingIndex];
-              let newShares = s.shares;
-              let newAvgPrice = s.avgPriceUsd;
-
-              if (txTypeLabel === "매수") {
-                const totalShares = s.shares + qty;
-                newAvgPrice = totalShares > 0 ? (s.shares * s.avgPriceUsd + qty * priceInUsd) / totalShares : s.avgPriceUsd;
-                newShares = totalShares;
-              } else if (txTypeLabel === "매도") {
-                newShares = Math.max(0, s.shares - qty);
-              }
-
-              copy[existingIndex] = {
-                ...s,
-                shares: Number(newShares.toFixed(2)),
-                avgPriceUsd: Number(newAvgPrice.toFixed(2)),
-                transactions: [newTransaction, ...s.transactions],
-                holdings:
-                  txTypeLabel === "매수"
-                    ? [
-                        ...s.holdings,
-                        {
-                          id: `h_${Date.now()}`,
-                          brokerage: txData.brokerage || "기본 계좌",
-                          shares: qty,
-                          avgPriceUsd: Number(priceInUsd.toFixed(2)),
-                        },
-                      ]
-                    : s.holdings,
-              };
-              try {
-                if (typeof window !== "undefined") {
-                  localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(copy));
-                }
-              } catch (e) {}
-              return copy;
-            } else {
-              // 새 종목으로 등록
-              const initialShares = txTypeLabel === "매수" ? qty : 0;
-              const newStockItem = {
-                id: `s_${ticker.toLowerCase()}_${Date.now()}`,
-                name: txData.name || ticker,
-                ticker: ticker,
-                category: /^\d+$/.test(ticker) ? "국내주식" : "해외주식",
-                market: (/^\d+$/.test(ticker) ? "KR" : "US") as "US" | "KR",
-                shares: initialShares,
-                avgPriceUsd: Number(priceInUsd.toFixed(2)),
-                currentPriceUsd: Number(priceInUsd.toFixed(2)),
-                changePct: 0.0,
-                changeAmountUsd: 0.0,
-                marketStateLabel: /^\d+$/.test(ticker) ? "장마감" : "프리마켓",
-                holdings: [
-                  {
-                    id: `h_${Date.now()}`,
-                    brokerage: txData.brokerage || "기본 계좌",
-                    shares: initialShares,
-                    avgPriceUsd: Number(priceInUsd.toFixed(2)),
-                  },
-                ],
-                transactions: [newTransaction],
-              };
-              const updated = [newStockItem, ...copy];
-              try {
-                if (typeof window !== "undefined") {
-                  localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(updated));
-                }
-              } catch (e) {}
-              return updated;
-            }
-          });
-
-          showToast(`[${txData.name || ticker}] ${txTypeLabel} 내역이 성공적으로 등록되었습니다.`);
-          setTimeout(() => fetchRealtimeQuotes(false), 200);
+      <FilterModal
+        isOpen={isFilterSheetOpen}
+        onClose={() => setIsFilterSheetOpen(false)}
+        hideAssetAmounts={hideAssetAmounts}
+        setHideAssetAmounts={setHideAssetAmounts}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        categories={categories}
+        onResetFilters={() => {
+          setSelectedCategory("전체");
+          setSelectedAccountFilter("전체");
+          setIsFilterSheetOpen(false);
         }}
       />
 
-      {/* Batch Import Preview Modal (Excel & PDF) */}
-      <BatchImportPreviewModal
-        isOpen={previewModalOpen}
-        onClose={() => setPreviewModalOpen(false)}
-        fileName={previewFileName}
-        initialItems={previewItems}
-        detectedBrokerage={previewBrokerage}
-        onSuccess={(count, items) => {
-          const effectiveRate = rate || 1385.48;
+      {/* Manual Asset Creation Modal */}
+      {isManualModalOpen && (
+        <ManualAssetModal
+          isOpen={isManualModalOpen}
+          onClose={() => setIsManualModalOpen(false)}
+          onSuccess={() => {
+            loadPortfolio();
+            showToast("종목 및 거래 정보가 등록되었습니다.");
+          }}
+        />
+      )}
 
-          setStocks((prev) => {
-            const copy = [...prev];
-
-            for (const item of items) {
-              const priceInUsd =
-                item.currency === "KRW" ? Number(item.price) / effectiveRate : Number(item.price);
-              const ticker = item.ticker.toUpperCase();
-              const existingIndex = copy.findIndex((s) => s.ticker === ticker);
-
-              const newHolding = {
-                id: `h_${Date.now()}_${Math.random()}`,
-                brokerage: item.account || "기본 계좌",
-                shares: Number(item.quantity),
-                avgPriceUsd: Number(priceInUsd.toFixed(2)),
-              };
-
-              const newTx = {
-                id: `tx_${Date.now()}_${Math.random()}`,
-                type: item.type === "BUY" ? "매수" : "매도",
-                date: item.date || new Date().toISOString().slice(0, 10),
-                shares: Number(item.quantity),
-                priceUsd: Number(priceInUsd.toFixed(2)),
-                brokerage: item.account || "기본 계좌",
-              };
-
-              if (existingIndex >= 0) {
-                const s = copy[existingIndex];
-                const totalShares = s.shares + Number(item.quantity);
-                const avgPriceUsd =
-                  totalShares > 0
-                    ? (s.shares * s.avgPriceUsd + Number(item.quantity) * priceInUsd) / totalShares
-                    : s.avgPriceUsd;
-
-                copy[existingIndex] = {
-                  ...s,
-                  shares: totalShares,
-                  avgPriceUsd: Number(avgPriceUsd.toFixed(2)),
-                  holdings: [...s.holdings, newHolding],
-                  transactions: [...s.transactions, newTx],
-                };
-              } else {
-                copy.unshift({
-                  id: `s_${ticker.toLowerCase()}_${Date.now()}`,
-                  name: item.name || ticker,
-                  ticker: ticker,
-                  category: /^\d+$/.test(ticker) ? "국내주식" : "해외주식",
-                  market: (/^\d+$/.test(ticker) ? "KR" : "US") as "US" | "KR",
-                  shares: Number(item.quantity),
-                  avgPriceUsd: Number(priceInUsd.toFixed(2)),
-                  currentPriceUsd: Number(priceInUsd.toFixed(2)),
-                  changePct: 0.0,
-                  changeAmountUsd: 0.0,
-                  marketStateLabel: /^\d+$/.test(ticker) ? "장마감" : "프리마켓",
-                  holdings: [newHolding],
-                  transactions: [newTx],
-                });
-              }
-            }
-            try {
-              if (typeof window !== "undefined") {
-                localStorage.setItem("alexandria_portfolio_v1", JSON.stringify(copy));
-              }
-            } catch (e) {}
-            return copy;
-          });
-
-          showToast(`총 ${count}건의 종목/체결 내역이 포트폴리오에 성공적으로 반영되었습니다.`);
-          setTimeout(() => fetchRealtimeQuotes(false), 200);
-        }}
-      />
-
-      {/* Hidden File Inputs */}
-      <input
-        type="file"
-        ref={excelInputRef}
-        onChange={handleExcelUpload}
-        accept=".xlsx,.xls,.csv"
-        className="hidden"
-      />
-      <input
-        type="file"
-        ref={pdfInputRef}
-        onChange={handlePdfUpload}
-        accept=".pdf"
-        className="hidden"
-      />
-
-      {/* Floating Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-[#1b1c1d] text-white px-5 py-3 rounded-full text-xs font-body shadow-xl">
-          {toastMessage}
-        </div>
+      {/* Keypad Modal for Editing Transactions */}
+      {editingTransaction && (
+        <KeypadModal
+          isOpen={Boolean(editingTransaction)}
+          onClose={() => setEditingTransaction(null)}
+          transaction={editingTransaction}
+          ticker={editingTransaction.ticker}
+          stockName={editingTransaction.stockName}
+          defaultPrice={editingTransaction.price}
+          currency={editingTransaction.currency}
+          initialType={editingTransaction.type}
+          defaultAccountId={editingTransaction.account_id}
+          onSuccess={() => {
+            setEditingTransaction(null);
+            loadPortfolio();
+            showToast("거래 내역이 수정되었습니다.");
+          }}
+        />
       )}
     </div>
   );

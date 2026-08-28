@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.schemas.schemas import WhatIfCreate, WhatIfItemResponse, WhatIfSummaryResponse
@@ -15,3 +15,9 @@ async def get_whatif_summary(db: AsyncSession = Depends(get_db)):
 async def create_whatif_item(data: WhatIfCreate, db: AsyncSession = Depends(get_db)):
     """새로운 가상 보유 종목 또는 과거 매도 종목 등록"""
     return await whatif_service.create_whatif_item(db, data)
+
+@router.delete("/{item_id}", summary="What-If 항목 삭제")
+async def delete_whatif_item(item_id: int, db: AsyncSession = Depends(get_db)):
+    if not await whatif_service.delete_whatif_item(db, item_id):
+        raise HTTPException(status_code=404, detail="해당 What-If 항목을 찾을 수 없습니다.")
+    return {"success": True}

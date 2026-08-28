@@ -2,19 +2,17 @@
 
 ## 1. 프로젝트 개요 및 구조 (Project Structure)
 
-* **프로젝트명**: `mystockapp` (Google Sheets 연동 실시간 주식 포트폴리오 관리 앱)
+* **프로젝트명**: `mystockapp` (FastAPI DB 기반 실시간 주식 포트폴리오 관리 앱)
 * **주요 디렉터리 구성**:
   * `app/`: Next.js 14 App Router (메인 대시보드 `/`, 분석 화면 `/analysis`, API Routes `/api/*`)
   * `components/`: UI 컴포넌트 (`FilterModal.tsx`, `AccountsDrawer.tsx`, `BottomNav.tsx` 등)
-  * `lib/`: 핵심 서버 모듈 (`googleSheets.ts` - 구글 시트 파서, `stockFetcher.ts` - 실시간 시세/환율 수집기)
+  * `lib/`: 핵심 프론트엔드 모듈 (`apiClient.ts` - FastAPI 프록시 클라이언트, `stockFetcher.ts` - 시세/환율 수집기)
   * `public/`: 정적 파비콘 및 아이콘 리소스
 * **실행 및 인프라 환경**:
-  * **개발 환경**: Next.js 개발 서버 (`npm run dev`) + Google Sheets API (`googleapis`)
+  * **개발 환경**: Next.js 개발 서버 (`npm run dev`) + FastAPI (`backend/.venv-runtime/bin/python -m uvicorn app.main:app --port 8000`)
   * **운영/배포 환경**: Vercel 배포 또는 Docker 기반 Next.js 독립 실행 서버
-  * **데이터베이스 (DB)**: Google Sheets (`mystockapp_db`)
-    * `초기자산` 탭: 보유 평단가, 수량, 증권사/계좌, 통화, 자산 유형
-    * `거래내역` 탭: 매수/매도 내역 및 실현손익(`realized_pnl`)
-    * `History` 탭: 일자별 원화 평가액(`Value_KRW`) 스냅샷
+  * **데이터베이스 (DB)**: PostgreSQL(운영) / SQLite(로컬 폴백)
+    * `holdings`, `transactions`, `daily_snapshots`를 FastAPI가 관리
 
 ---
 
@@ -48,7 +46,7 @@
 
 * **개발 서버 실행**: `npm run dev` (기본 포트: 3000)
 * **프로덕션 빌드 및 검증**: `npm run build && npm start`
-* **의존성 패키지**: `googleapis`, `yahoo-finance2`, `recharts`, `lucide-react`, `framer-motion`, `tailwindcss`
+* **의존성 패키지**: `yahoo-finance2`, `recharts`, `lucide-react`, `framer-motion`, `tailwindcss`
 
 ---
 

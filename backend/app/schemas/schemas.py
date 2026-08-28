@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime, date
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # ==========================================
 # 1. Account Schemas
@@ -11,18 +11,25 @@ class AccountBase(BaseModel):
     account_number: Optional[str] = Field(None, description="계좌번호")
     color: Optional[str] = Field("#094cb2", description="테마 색상")
     is_active: bool = Field(True, description="활성 상태")
+    currency: str = Field("KRW", description="기본 통화")
 
 class AccountCreate(AccountBase):
     pass
 
+class AccountUpdate(BaseModel):
+    name: Optional[str] = None
+    brokerage_code: Optional[str] = None
+    account_number: Optional[str] = None
+    color: Optional[str] = None
+    is_active: Optional[bool] = None
+    currency: Optional[str] = None
+
 class AccountResponse(AccountBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
+    cash_balance: float
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 # ==========================================
 # 2. Asset Schemas
@@ -40,20 +47,18 @@ class AssetCreate(AssetBase):
     current_price: Optional[float] = 0.0
 
 class AssetResponse(AssetBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     current_price: float
     change_pct: float
     change_amount: float
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
-
 # ==========================================
 # 3. Holding Schemas
 # ==========================================
 class HoldingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     account_id: int
     account_name: str
@@ -66,14 +71,13 @@ class HoldingResponse(BaseModel):
     average_buy_price: float
     currency: str
     current_price: float
+    previous_close: float
+    change_amount: float
+    change_pct: float
     valuation: float
     invested_cost: float
     unrealized_pnl: float
     return_pct: float
-
-    class Config:
-        from_attributes = True
-
 
 # ==========================================
 # 4. Transaction Schemas (P-102 Keypad)
@@ -100,10 +104,11 @@ class TransactionUpdate(BaseModel):
     notes: Optional[str] = None
 
 class TransactionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     account_id: int
     account_name: str
-    asset_id: int
+    asset_id: Optional[int]
     ticker: str
     asset_name: str
     type: str
@@ -115,10 +120,6 @@ class TransactionResponse(BaseModel):
     notes: Optional[str]
     transacted_at: datetime
     created_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 # ==========================================
 # 5. Portfolio Summary & Detail Schemas

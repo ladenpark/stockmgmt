@@ -170,8 +170,12 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
     setErrorMessage("");
 
     const finalBrokerage = brokerage === "직접입력" ? customBrokerage.trim() : brokerage;
-    const cleanTicker = ticker.trim().toUpperCase() || searchQuery.trim().toUpperCase();
-    const cleanName = name.trim() || cleanTicker;
+    // 결과를 클릭하지 않고 검색어만 입력해도 사전의 최상위 일치 종목을 사용한다.
+    const matchedStock = ticker.trim() ? undefined : searchStocks(searchQuery, 1)[0];
+    const cleanTicker = ticker.trim().toUpperCase() || matchedStock?.ticker || searchQuery.trim().toUpperCase();
+    const cleanName = name.trim() || matchedStock?.name || cleanTicker;
+    const resolvedMarket = ticker.trim() ? market : (matchedStock?.market || market);
+    const resolvedCurrency = ticker.trim() ? currency : (matchedStock?.currency || currency);
     const numQty = parseFloat(quantity);
     const numPrice = parseFloat(price);
     const numCash = parseFloat(cashAmount);
@@ -218,12 +222,12 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
         brokerage: finalBrokerage || "기본 계좌",
         ticker: txType === "CASH" ? "CASH" : cleanTicker,
         name: txType === "CASH" ? (cashSubtype === "DEPOSIT" ? "예수금 입금" : "예수금 출금") : cleanName,
-        market: txType === "CASH" ? (currency === "KRW" ? "KR" : "US") : market,
+        market: txType === "CASH" ? (currency === "KRW" ? "KR" : "US") : resolvedMarket,
         quantity: txType === "CASH" ? 1 : txType === "DIVIDEND" ? (numQty > 0 ? numQty : 1) : numQty,
         price: txType === "CASH" ? numCash : numPrice,
         average_buy_price: txType === "CASH" ? numCash : numPrice,
         amount: txType === "CASH" ? numCash : txType === "DIVIDEND" ? numPrice : numQty * numPrice,
-        currency,
+        currency: resolvedCurrency,
         transacted_at: date,
         notes: notes.trim(),
       };
@@ -245,6 +249,8 @@ export default function ManualAssetModal({ isOpen, onClose, onSuccess, exchangeR
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
-import { Sparkles, Plus, TrendingUp, ArrowRight } from "lucide-react";
+import { Sparkles, Plus, TrendingUp, ArrowRight, Trash2, X } from "lucide-react";
 
 interface WhatIfItem {
   id: number;
@@ -23,29 +23,45 @@ export default function WhatIfPage() {
   const [mode, setMode] = useState<"DIVESTED" | "VIRTUAL">("DIVESTED");
   const [divestedItems, setDivestedItems] = useState<WhatIfItem[]>([]);
   const [virtualItems, setVirtualItems] = useState<WhatIfItem[]>([]);
-  const [totalForegoneKrw, setTotalForegoneKrw] = useState(6234750);
+  const [totalForegoneKrw, setTotalForegoneKrw] = useState(0);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [ticker, setTicker] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [entryPrice, setEntryPrice] = useState("");
+  const [sellPrice, setSellPrice] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    fetch("http://localhost:8000/api/v1/what-if/summary")
+  const loadData = () => {
+    fetch("/api/backend/what-if/summary")
       .then((res) => res.json())
       .then((data) => {
-        if (data.divested_items) setDivestedItems(data.divested_items);
-        if (data.virtual_items) setVirtualItems(data.virtual_items);
-        if (data.total_foregone_krw) setTotalForegoneKrw(data.total_foregone_krw);
+        setDivestedItems(data.divested_items || []);
+        setVirtualItems(data.virtual_items || []);
+        setTotalForegoneKrw(data.total_foregone_krw || 0);
       })
-      .catch((err) => {
-        console.warn("Using fallback whatif data", err);
-        setDivestedItems([
-          { id: 1, ticker: "NVDA", name: "엔비디아", mode: "DIVESTED", target_date: "2023.10", quantity: 20, entry_price: 380, sell_price: 450, current_price: 945.50, diff_pct: 110.11, foregone_gain: 9910.00, tag: "최고 기회비용" },
-          { id: 2, ticker: "AAPL", name: "애플", mode: "DIVESTED", target_date: "2023.01", quantity: 30, entry_price: 130, sell_price: 145, current_price: 192.42, diff_pct: 32.70, foregone_gain: 1422.60, tag: "지속 상승" },
-          { id: 3, ticker: "LCID", name: "루시드", mode: "DIVESTED", target_date: "2023.04", quantity: 300, entry_price: 12, sell_price: 8.50, current_price: 3.15, diff_pct: -62.94, foregone_gain: -1605.00, tag: "손실 회피 성공 (잘 판 주식)" }
-        ]);
-        setVirtualItems([
-          { id: 4, ticker: "PLTR", name: "팔란티어", mode: "VIRTUAL", target_date: "2024.01.05", quantity: 100, entry_price: 16.50, sell_price: 0, current_price: 25.80, diff_pct: 56.36, foregone_gain: 930.00, tag: "가상 보유" },
-          { id: 5, ticker: "MU", name: "마이크론", mode: "VIRTUAL", target_date: "2024.02.15", quantity: 50, entry_price: 85.00, sell_price: 0, current_price: 128.50, diff_pct: 51.18, foregone_gain: 2175.00, tag: "가상 보유" }
-        ]);
-      });
+      .catch((err) => console.warn("What-If 데이터 로드 실패", err));
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
+
+  const submitItem = async () => {
+    if (!ticker.trim() || Number(quantity) <= 0 || Number(entryPrice) <= 0 || (mode === "DIVESTED" && Number(sellPrice) <= 0)) return;
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/backend/what-if", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticker: ticker.trim().toUpperCase(), target_date: new Date().toISOString().slice(0, 10), quantity: Number(quantity), entry_price: Number(entryPrice), sell_price: mode === "DIVESTED" ? Number(sellPrice) : 0, mode }) });
+      if (!response.ok) throw new Error();
+      setIsAddOpen(false); setTicker(""); setQuantity(""); setEntryPrice(""); setSellPrice(""); loadData();
+    } catch { alert("What-If 항목을 저장하지 못했습니다."); }
+    finally { setIsSaving(false); }
+  };
+
+  const removeItem = async (id: number) => {
+    if (!window.confirm("이 항목을 삭제할까요?")) return;
+    const response = await fetch(`/api/backend/what-if/${id}`, { method: "DELETE" });
+    if (response.ok) loadData(); else alert("항목 삭제에 실패했습니다.");
+  };
 
   const currentList = mode === "DIVESTED" ? divestedItems : virtualItems;
 
@@ -135,6 +151,7 @@ export default function WhatIfPage() {
                         ({isGain ? "+" : ""}{item.diff_pct}%)
                       </span>
                     </div>
+                    <button onClick={() => removeItem(item.id)} aria-label="What-If 항목 삭제" className="ml-1 p-1 text-[#8B95A1] hover:text-[#EF4444]"><Trash2 className="w-4 h-4" /></button>
                   </div>
 
                   <div className="p-3 bg-[#F9FAFB] rounded-2xl text-xs flex justify-between items-center border border-[#E5E8EB]">
@@ -154,6 +171,20 @@ export default function WhatIfPage() {
           </div>
         </div>
       </div>
+
+      <button onClick={() => setIsAddOpen(true)} aria-label="What-If 항목 추가" className="fixed bottom-24 right-5 z-20 rounded-full bg-[#094cb2] p-4 text-white shadow-lg"><Plus className="w-5 h-5" /></button>
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg space-y-3 rounded-3xl bg-white p-6">
+            <div className="flex items-center justify-between"><h2 className="font-bold">{mode === "DIVESTED" ? "과거 매도 종목" : "가상 보유 종목"} 추가</h2><button onClick={() => setIsAddOpen(false)} aria-label="닫기"><X className="w-5 h-5" /></button></div>
+            <input value={ticker} onChange={(event) => setTicker(event.target.value)} placeholder="티커 (예: AAPL)" className="w-full rounded-xl border p-3" />
+            <input value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" placeholder="수량" className="w-full rounded-xl border p-3" />
+            <input value={entryPrice} onChange={(event) => setEntryPrice(event.target.value)} inputMode="decimal" placeholder="진입가" className="w-full rounded-xl border p-3" />
+            {mode === "DIVESTED" && <input value={sellPrice} onChange={(event) => setSellPrice(event.target.value)} inputMode="decimal" placeholder="매도가" className="w-full rounded-xl border p-3" />}
+            <button disabled={isSaving} onClick={submitItem} className="w-full rounded-xl bg-[#094cb2] py-3 font-bold text-white">{isSaving ? "저장 중..." : "저장"}</button>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </main>

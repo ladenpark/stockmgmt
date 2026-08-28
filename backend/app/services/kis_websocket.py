@@ -5,6 +5,7 @@ from typing import Set, Dict, Any, Optional
 import httpx
 import websockets
 from app.core.config import settings
+from app.services.stock_service import stock_service
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class KISWebSocketManager:
 
         self.approval_key: Optional[str] = None
         self.active_clients: Set[Any] = set()
-        self.subscribed_tickers: Set[str] = {"005930", "AAPL", "NVDA", "TSLA", "MSFT", "PLTR"}
+        self.subscribed_tickers: Set[str] = {"005930", "AAPL", "NVDA", "TSLA", "MSFT", "O", "RXRX"}
         self.running = False
         self.kis_ws = None
 
@@ -128,6 +129,7 @@ class KISWebSocketManager:
                 if sign in ("4", "5"):
                     change_amount = -change_amount
                 change_pct = float(fields[5])    # 전일대비율
+                previous_close = current_price / (1 + change_pct / 100) if abs(change_pct) < 99 else current_price - change_amount
                 volume = int(fields[12])         # 누적거래량
 
                 return {
@@ -135,6 +137,7 @@ class KISWebSocketManager:
                     "market": "KR",
                     "currency": "KRW",
                     "currentPrice": current_price,
+                    "previousClose": previous_close,
                     "changeAmount": change_amount,
                     "changePercent": change_pct,
                     "volume": volume,
@@ -143,19 +146,24 @@ class KISWebSocketManager:
                 }
 
             # 2. 미국 주식 실시간 체결가 (HDFSCNT0)
-            elif (tr_id in ("HDFSCNT0", "HDFSASP0")) and len(fields) >= 10:
+            elif tr_id == "HDFSCNT0" and len(fields) >= 15:
                 ticker_raw = fields[0]    # 종목코드 (예: DNASAAPL)
                 ticker = ticker_raw[4:] if len(ticker_raw) > 4 else ticker_raw
+                # HDFSCNT0: 11 현재가, 12 대비부호, 13 전일대비, 14 등락률
                 current_price = float(fields[11] if len(fields) > 11 else fields[1])
-                change_amount = float(fields[12] if len(fields) > 12 else fields[2])
-                change_pct = float(fields[13] if len(fields) > 13 else fields[3])
-                sign = fields[14] if len(fields) > 14 else "2"
+                sign = fields[12] if len(fields) > 12 else "2"
+                change_amount = float(fields[13] if len(fields) > 13 else fields[2])
+                if sign in ("4", "5"):
+                    change_amount = -change_amount
+                change_pct = float(fields[14] if len(fields) > 14 else fields[3])
+                previous_close = current_price / (1 + change_pct / 100) if abs(change_pct) < 99 else current_price - change_amount
 
                 return {
                     "ticker": ticker,
                     "market": "US",
                     "currency": "USD",
                     "currentPrice": current_price,
+                    "previousClose": previous_close,
                     "changeAmount": change_amount,
                     "changePercent": change_pct,
                     "time": "",
@@ -170,7 +178,8 @@ class KISWebSocketManager:
         """특정 종목 실시간 틱 구독 요청 전송"""
         is_kr = ticker.isdigit()
         tr_id = "H0STCNT0" if is_kr else "HDFSCNT0"
-        tr_key = ticker if is_kr else f"DNAS{ticker.upper()}"
+        exchange_prefix = "DNYS" if ticker.upper() == "O" else "DNAS"
+        tr_key = ticker if is_kr else f"{exchange_prefix}{ticker.upper()}"
 
         req = {
             "header": {
@@ -215,14 +224,22 @@ class KISWebSocketManager:
                         if not self.running:
                             break
 
-                        parsed_tick = self.parse_kis_raw_tick(str(message))
+                        raw_message = str(message)
+                        parsed_tick = self.parse_kis_raw_tick(raw_message)
                         if parsed_tick:
                             if parsed_tick.get("is_ping"):
                                 # PINGPONG 수신 시 응답
                                 await ws.send(message)
                             else:
+                                # REST 폴링과 웹소켓 틱이 서로 다른 가격을 표시하지 않도록
+                                # 같은 캐시에 즉시 반영한 뒤 브라우저에 전송한다.
+                                stock_service.apply_realtime_tick(parsed_tick)
                                 # 브라우저 클라이언트로 0.01초 틱 브로드캐스트
                                 await self.broadcast_tick(parsed_tick)
+                        elif raw_message.startswith("{"):
+                            # 구독 실패 응답은 JSON으로 수신된다. 키/승인값은 포함하지 않으므로
+                            # 재연결 원인을 진단할 수 있도록 응답만 남긴다.
+                            logger.warning("KIS 실시간 구독 응답: %s", raw_message[:500])
 
             except Exception as e:
                 logger.warning(f"KIS WebSocket 연결 끊김 또는 오류: {e} (3초 후 자동 재연결)")

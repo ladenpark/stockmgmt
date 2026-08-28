@@ -49,6 +49,7 @@ export const US_STOCKS: MasterStockItem[] = [
   { ticker: "SBUX", name: "스타벅스", nameEn: "Starbucks Corp", market: "US", currency: "USD", category: "카페/외식", aliases: ["스벅"] },
   { ticker: "DIS", name: "월트 디즈니", nameEn: "Walt Disney Co", market: "US", currency: "USD", category: "엔터/미디어", aliases: ["디즈니"] },
   { ticker: "NKE", name: "나이키", nameEn: "Nike Inc", market: "US", currency: "USD", category: "스포츠웨어", aliases: ["nike"] },
+  { ticker: "RXRX", name: "리커전 파마슈티컬스", nameEn: "Recursion Pharmaceuticals, Inc.", market: "US", currency: "USD", category: "AI 신약개발", aliases: ["recursion", "리커전"] },
 
   // 3. 지수 & 레버리지 ETF
   { ticker: "SPY", name: "SPDR S&P 500 ETF (SPY)", nameEn: "SPDR S&P 500 ETF Trust", market: "US", currency: "USD", category: "지수 ETF", aliases: ["스파이", "s&p500"] },
@@ -154,5 +155,9 @@ export function searchStocks(query: string, limit: number = 10): MasterStockItem
 
   // 점수 높은 순으로 정렬 후 상위 N개 반환
   scoredResults.sort((a, b) => b.score - a.score);
-  return scoredResults.slice(0, limit).map((r) => r.item);
+  return scoredResults.slice(0, limit).map(({ item }) => ({
+    ...item,
+    // 외부 API 장애 시에도 미국 종목은 영어 회사명으로 일관되게 표시한다.
+    name: item.market === "US" ? (item.nameEn || item.name) : item.name,
+  }));
 }

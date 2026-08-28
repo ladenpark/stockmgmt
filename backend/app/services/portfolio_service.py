@@ -94,6 +94,7 @@ class PortfolioService:
                 
             asset_info = stock_service.get_stock_price(h.asset.ticker)
             current_price = asset_info["price"]
+            display_name = asset_info.get("name") if h.asset.name.strip().upper() == h.asset.ticker.upper() else h.asset.name
             valuation = h.quantity * current_price
             invested_cost = h.quantity * h.average_buy_price
             unrealized_pnl = valuation - invested_cost
@@ -105,13 +106,16 @@ class PortfolioService:
                 account_name=h.account.name if h.account else "",
                 asset_id=h.asset_id,
                 ticker=h.asset.ticker,
-                asset_name=h.asset.name,
+                asset_name=display_name,
                 market=h.asset.market,
                 asset_type=h.asset.asset_type,
                 quantity=h.quantity,
                 average_buy_price=h.average_buy_price,
                 currency=h.currency,
                 current_price=current_price,
+                previous_close=asset_info.get("previous_close") or current_price - asset_info["change_amount"],
+                change_amount=asset_info["change_amount"],
+                change_pct=asset_info["change_pct"],
                 valuation=round(valuation, 2),
                 invested_cost=round(invested_cost, 2),
                 unrealized_pnl=round(unrealized_pnl, 2),
@@ -134,6 +138,8 @@ class PortfolioService:
             return None
             
         asset_info = stock_service.get_stock_price(asset.ticker)
+        if asset.name.strip().upper() == asset.ticker.upper() and asset_info.get("name"):
+            asset.name = asset_info["name"]
         current_price = asset_info["price"]
         asset.current_price = current_price
         asset.change_pct = asset_info["change_pct"]
@@ -186,7 +192,7 @@ class PortfolioService:
             ))
 
         return StockDetailResponse(
-            asset=AssetResponse.from_orm(asset),
+            asset=AssetResponse.model_validate(asset),
             total_shares=total_shares,
             total_valuation=round(total_valuation, 2),
             total_principal=round(total_principal, 2),
@@ -221,7 +227,7 @@ class PortfolioService:
         if not account:
             account = Account(
                 name=clean_brokerage,
-                brokerage=clean_brokerage,
+                brokerage_code="MANUAL",
                 account_number="MANUAL",
                 currency=currency,
                 is_active=True

@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
-from app.schemas.schemas import TransactionCreate, TransactionResponse
+from app.schemas.schemas import TransactionCreate, TransactionResponse, TransactionUpdate
 from app.services.transaction_service import transaction_service
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -25,7 +25,20 @@ async def get_transactions(
 @router.delete("/{tx_id}", summary="체결 내역 삭제")
 async def delete_transaction(tx_id: int, db: AsyncSession = Depends(get_db)):
     """체결 내역 단건 삭제"""
-    deleted = await transaction_service.delete_transaction(db, tx_id)
+    try:
+        deleted = await transaction_service.delete_transaction(db, tx_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     if not deleted:
         raise HTTPException(status_code=404, detail="해당 체결 내역을 찾을 수 없습니다.")
     return {"success": True, "message": "체결 내역이 삭제되었습니다."}
+
+@router.patch("/{tx_id}", response_model=TransactionResponse, summary="체결 내역 수정")
+async def update_transaction(tx_id: int, data: TransactionUpdate, db: AsyncSession = Depends(get_db)):
+    """체결 단가·수량·거래일 등을 수정하고 잔고와 실현손익을 재계산합니다."""
+    try:
+        return await transaction_service.update_transaction(db, tx_id, data)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))

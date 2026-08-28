@@ -1,6 +1,7 @@
 // API Client for Alexandria Backend & Next.js API Routes
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+// 브라우저는 항상 Next.js 프록시를 호출한다. FastAPI의 실제 주소는 서버 환경변수로만 관리한다.
+const API_BASE_URL = "/api/backend";
 
 export interface PortfolioSummary {
   total_valuation_krw: number;
@@ -45,6 +46,7 @@ export interface TransactionPayload {
   currency?: string;
   exchange_rate?: number;
   notes?: string;
+  transacted_at?: string;
 }
 
 export interface ManualAssetPayload {
@@ -132,12 +134,29 @@ export async function createTransaction(payload: TransactionPayload) {
   return await res.json();
 }
 
+export async function updateTransaction(id: number, payload: Partial<Omit<TransactionPayload, "ticker">>) {
+  const res = await fetch(`${API_BASE_URL}/transactions/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "체결 수정 실패");
+  return await res.json();
+}
+
+export async function deleteTransaction(id: number) {
+  const res = await fetch(`${API_BASE_URL}/transactions/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "체결 삭제 실패");
+  return await res.json();
+}
+
 export async function addManualAsset(payload: ManualAssetPayload) {
-  const res = await fetch("/api/portfolio/manual", {
+  const res = await fetch(`${API_BASE_URL}/portfolio/assets/manual`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+  if (!res.ok) throw new Error("수동 자산 등록 실패");
   return await res.json();
 }
 
@@ -145,10 +164,11 @@ export async function parseExcelFile(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch("/api/hub/upload-excel", {
+  const res = await fetch(`${API_BASE_URL}/hub/parse-excel`, {
     method: "POST",
     body: formData
   });
+  if (!res.ok) throw new Error("엑셀 파일 분석 실패");
   return await res.json();
 }
 
@@ -156,18 +176,20 @@ export async function parsePdfFile(file: File) {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch("/api/hub/upload-pdf", {
+  const res = await fetch(`${API_BASE_URL}/hub/parse-pdf`, {
     method: "POST",
     body: formData
   });
+  if (!res.ok) throw new Error("PDF 파일 분석 실패");
   return await res.json();
 }
 
 export async function commitBatchImport(items: ParsedRowItem[]) {
-  const res = await fetch("/api/hub/commit-batch", {
+  const res = await fetch(`${API_BASE_URL}/hub/commit-batch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ items })
   });
+  if (!res.ok) throw new Error("일괄 반영 실패");
   return await res.json();
 }

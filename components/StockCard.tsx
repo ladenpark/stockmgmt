@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
+import { StatValue } from "@/components/ui/StatValue";
 
 export interface StockCardItem {
   id: string;
@@ -59,122 +59,94 @@ export function StockCard({
   const profitAmountCurrency = isTotalMode ? gainCurrency : dailyGainCurrency;
   const profitPercent = isTotalMode ? gainPercent : dailyChangePercent;
 
-  const isPositive = profitAmount >= 0;
-
   const displayEval = currencyView === "KRW" ? (item.evalKRW ?? 0) : (item.evalAmountCurrency ?? 0);
+  const displayCost = currencyView === "KRW" ? (item.costKRW ?? 0) : (item.costAmountCurrency ?? 0);
   const displayProfit = currencyView === "KRW" ? profitAmount : profitAmountCurrency;
-  const accountsList = item.accountsList && item.accountsList.length > 0 ? item.accountsList : [item.account || "계좌"];
-  const ticker = item.ticker || "STOCK";
+  const ticker = (item.ticker || "STOCK").toUpperCase();
   const name = item.name || ticker;
+  const accountsList = Array.from(
+    new Set(
+      (item.accountsList && item.accountsList.length > 0 ? item.accountsList : [item.account || "일반"]).filter(Boolean)
+    )
+  );
 
-  const isUp = profitPercent >= 0;
-  const sparklineColor = isUp ? "#10B981" : "#F43F5E";
-  const sparklinePath = isUp
-    ? "M 0,22 Q 15,18 30,12 T 60,4"
-    : "M 0,4 Q 15,8 30,16 T 60,22";
+  // Ticker badge color generator based on ticker
+  const getBadgeBg = (sym: string) => {
+    if (sym === "TSLA") return "bg-red-50 text-red-600 border-red-100";
+    if (sym === "AAPL") return "bg-slate-100 text-slate-800 border-slate-200";
+    if (sym === "NVDA") return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    if (sym === "MSFT") return "bg-blue-50 text-blue-700 border-blue-100";
+    if (/^\d+$/.test(sym)) return "bg-indigo-50 text-indigo-700 border-indigo-100";
+    return "bg-slate-100 text-slate-700 border-slate-200";
+  };
 
   return (
     <div
       onClick={onClick}
-      className="bg-white hover:bg-slate-50/80 transition-all p-4 rounded-2xl border border-slate-100 shadow-2xs hover:shadow-md hover:-translate-y-0.5 duration-200 cursor-pointer space-y-3"
+      className="bg-white p-4 md:p-5 rounded-2xl border border-[#E2E8F0] shadow-xs hover:border-[#CBD5E1] transition-all cursor-pointer space-y-2.5 active:scale-[0.99]"
     >
-      {/* Top Row: Symbol Icon, Stock Info, Sparkline & Prices */}
+      {/* Top Header: Logo, Ticker, Name, Brokerage */}
       <div className="flex items-center justify-between gap-3">
-        {/* Left: Logo Badge & Stock Names */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center font-extrabold text-xs text-slate-800 shrink-0 shadow-xs">
-            {ticker.substring(0, 4)}
+        {/* Left: Thumbnail Badge & Name */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center font-black text-xs shrink-0 ${getBadgeBg(
+              ticker
+            )}`}
+          >
+            {ticker.slice(0, 3)}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-extrabold text-slate-900 truncate">
-                {name}
-              </h3>
-              <span className="text-[10px] font-bold text-slate-500 uppercase">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h3 className="text-sm font-bold text-[#0F172A] truncate">{name}</h3>
+              <span className="text-[11px] font-semibold text-[#64748B] shrink-0 uppercase">
                 {ticker}
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
-              {(item.quantity ?? 0).toLocaleString()}주 · 평단 {formatCurrency(item.averagePrice ?? 0, item.currency || "KRW")}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <div className="flex items-center gap-1 shrink-0 flex-wrap">
+                {accountsList.map((acc, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[10px] font-medium bg-[#F1F5F9] text-[#475569] px-1.5 py-0.5 rounded-md truncate max-w-[110px]"
+                  >
+                    {acc}
+                  </span>
+                ))}
+              </div>
+              <span className="text-[11px] text-[#64748B] truncate">
+                {(item.quantity ?? 0).toLocaleString()}주 · 평단 {formatCurrency(item.averagePrice ?? 0, item.currency || "KRW")}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Center: Sparkline Mini Chart (Visible on sm/md screens) */}
-        <div className="hidden sm:block shrink-0 px-2">
-          <svg width="64" height="26" viewBox="0 0 64 26" fill="none">
-            <path
-              d={sparklinePath}
-              stroke={sparklineColor}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </svg>
-        </div>
-
-        {/* Right: Evaluation & Profit Badge */}
+        {/* Right: Valuation Amount */}
         <div className="text-right shrink-0">
-          <p className="text-sm font-black text-slate-900 tracking-tight">
-            {hideAssetAmounts
-              ? "••••••"
-              : formatCurrency(displayEval, currencyView)}
-          </p>
-          <div className="mt-0.5 inline-flex items-center justify-end gap-1">
-            <span
-              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-xs font-extrabold border ${
-                isPositive
-                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                  : "bg-rose-50 text-rose-600 border-rose-100"
-              }`}
-            >
-              {isPositive ? (
-                <TrendingUp className="w-3 h-3 stroke-[2.5]" />
-              ) : (
-                <TrendingDown className="w-3 h-3 stroke-[2.5]" />
-              )}
-              {hideAssetAmounts
-                ? "••%"
-                : `${formatPercent(profitPercent)} (${formatCurrency(
-                    displayProfit,
-                    currencyView
-                  )})`}
-            </span>
+          <div className="text-sm md:text-base font-extrabold text-[#0F172A] tracking-tight">
+            {hideAssetAmounts ? "••••••" : formatCurrency(displayEval, currencyView)}
+          </div>
+          <div className="text-[11px] text-[#64748B]">
+            원금 {hideAssetAmounts ? "••••" : formatCurrency(displayCost, currencyView)}
           </div>
         </div>
       </div>
 
-      {/* Bottom Row: Account Badges & Market Status Chips */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-        {/* Account Badges */}
-        <div className="flex flex-wrap items-center gap-1">
-          {accountsList.map((acc) => (
-            <span
-              key={acc}
-              className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-semibold border border-slate-200/60"
-            >
-              {acc}
-            </span>
-          ))}
-          <span className="px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 font-medium">
-            {item.category || "주식"}
-          </span>
-        </div>
-
-        {/* Market State Chip */}
-        <span
-          className={`font-bold px-2 py-0.5 rounded-md ${
-            item.marketStateLabel === "프리마켓"
-              ? "bg-amber-50 text-amber-600 border border-amber-200/60"
-              : item.marketStateLabel === "애프터마켓"
-              ? "bg-purple-50 text-purple-600 border border-purple-200/60"
-              : item.marketStateLabel === "정규장"
-              ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
-              : "bg-slate-100 text-slate-500"
-          }`}
-        >
-          {item.marketStateLabel || "장마감"}
+      {/* Bottom Row: Profit Gain / Loss Bar */}
+      <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between text-xs">
+        <span className="text-[11px] font-medium text-[#64748B]">
+          {isTotalMode ? "총 평가손익" : "오늘의 변동"}
         </span>
+        {hideAssetAmounts ? (
+          <span className="text-xs font-semibold text-[#64748B]">••••••</span>
+        ) : (
+          <StatValue
+            amount={displayProfit}
+            percent={profitPercent}
+            currency={currencyView}
+            size="sm"
+          />
+        )}
       </div>
     </div>
   );

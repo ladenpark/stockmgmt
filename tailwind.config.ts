@@ -9,37 +9,58 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "#094cb2",
-        "primary-container": "#3366cc",
-        "primary-fixed": "#d9e2ff",
-        "on-primary": "#ffffff",
-        "on-primary-container": "#e7ebff",
-        secondary: "#5a5f63",
-        "secondary-container": "#dfe3e8",
-        "on-secondary": "#ffffff",
-        surface: "#faf9fa",
-        "surface-dim": "#dbdadb",
-        "surface-container-lowest": "#ffffff",
-        "surface-container-low": "#f5f3f4",
-        "surface-container": "#efedee",
-        "surface-container-high": "#e9e8e9",
-        "surface-container-highest": "#e3e2e3",
-        "on-surface": "#1b1c1d",
-        "on-surface-variant": "#434653",
-        outline: "#737784",
-        "outline-variant": "#c3c6d5",
-        error: "#ba1a1a",
-        "error-container": "#ffdad6",
-        "on-error": "#ffffff",
-        tertiary: "#6d5e00",
-        "tertiary-container": "#bfab49",
-        "on-tertiary": "#ffffff",
+        // Fintech Design System Tokens
+        primary: {
+          DEFAULT: "#1366FF",
+          hover: "#0D54DB",
+          light: "#EBF2FF",
+        },
+        positive: {
+          DEFAULT: "#16A34A",
+          light: "#DCFCE7",
+        },
+        negative: {
+          DEFAULT: "#EF4444",
+          light: "#FEE2E2",
+        },
+        neutral: {
+          900: "#0F172A", // Text Primary
+          800: "#1E293B",
+          700: "#334155",
+          600: "#475569", // Text Secondary
+          500: "#64748B",
+          400: "#94A3B8", // Text Muted
+          300: "#CBD5E1", // Inactive Border
+          200: "#E2E8F0", // Border Default
+          100: "#F1F5F9", // Inset / Chip Inactive
+          50: "#F8FAFC",  // Background
+        },
+        surface: "#F8FAFC",
+        card: "#FFFFFF",
+      },
+      borderRadius: {
+        card: "16px",
+        btn: "12px",
+        chip: "10px",
       },
       fontFamily: {
-        headline: ["'Noto Serif KR'", "'Noto Serif'", "serif"],
-        display: ["'Noto Serif KR'", "'Noto Serif'", "serif"],
-        body: ["'Pretendard'", "'Noto Sans KR'", "'Inter'", "sans-serif"],
-        label: ["'Public Sans'", "'Noto Sans KR'", "sans-serif"],
+        sans: [
+          "'Pretendard'",
+          "'Inter'",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "'Segoe UI'",
+          "Roboto",
+          "'Helvetica Neue'",
+          "Arial",
+          "sans-serif",
+        ],
+      },
+      boxShadow: {
+        xs: "0 1px 2px 0 rgba(15, 23, 42, 0.04)",
+        sm: "0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04)",
+        card: "0 2px 8px -2px rgba(15, 23, 42, 0.05), 0 1px 4px -1px rgba(15, 23, 42, 0.03)",
+        modal: "0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.08)",
       },
     },
   },

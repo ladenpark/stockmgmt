@@ -1,0 +1,254 @@
+[
+  {
+    "id": "s_rxrx_1787582256868",
+    "name": "rxrx",
+    "ticker": "RXRX",
+    "category": "해외주식",
+    "market": "US",
+    "shares": 100,
+    "avgPriceUsd": 3.27,
+    "currentPriceUsd": 3.31,
+    "changePct": 1.85,
+    "changeAmountUsd": -0.25,
+    "marketStateLabel": "프리마켓",
+    "holdings": [
+      {
+        "id": "h_1787582256868",
+        "brokerage": "토스증권",
+        "shares": 100,
+        "avgPriceUsd": 3.27
+      }
+    ],
+    "transactions": [
+      {
+        "id": "tx_1787582256866",
+        "type": "매수",
+        "date": "2026-08-24",
+        "shares": 100,
+        "priceUsd": 3.27,
+        "brokerage": "토스증권",
+        "notes": ""
+      }
+    ]
+  },
+  {
+    "id": "s_aapl",
+    "ticker": "AAPL",
+    "name": "애플",
+    "category": "Technology",
+    "market": "US",
+    "currency": "USD",
+    "currentPriceUsd": 309.39,
+    "changePct": -0.31,
+    "changeAmountUsd": 0.99,
+    "shares": 80,
+    "avgPriceUsd": 153.75,
+    "realizedGainUsd": 3200,
+    "holdings": [
+      {
+        "id": "h1",
+        "brokerage": "Fidelity Investments",
+        "shares": 50,
+        "avgPriceUsd": 150
+      },
+      {
+        "id": "h2",
+        "brokerage": "토스증권",
+        "shares": 30,
+        "avgPriceUsd": 160
+      }
+    ],
+    "transactions": [
+      {
+        "id": "t1",
+        "type": "매수",
+        "date": "2024.05.10",
+        "shares": 10,
+        "priceUsd": 182.5,
+        "brokerage": "토스증권"
+      },
+      {
+        "id": "t2",
+        "type": "매도",
+        "date": "2024.04.15",
+        "shares": 20,
+        "priceUsd": 175,
+        "brokerage": "Fidelity"
+      },
+      {
+        "id": "t3",
+        "type": "매수",
+        "date": "2024.02.01",
+        "shares": 50,
+        "priceUsd": 150,
+        "brokerage": "Fidelity"
+      }
+    ],
+    "marketStateLabel": "프리마켓"
+  },
+  {
+    "id": "s_nvda",
+    "ticker": "NVDA",
+    "name": "엔비디아",
+    "category": "Semiconductors",
+    "market": "US",
+    "currency": "USD",
+    "currentPriceUsd": 211.07,
+    "changePct": 1.24,
+    "changeAmountUsd": -6.24,
+    "shares": 45,
+    "avgPriceUsd": 520,
+    "realizedGainUsd": 8500,
+    "holdings": [
+      {
+        "id": "h3",
+        "brokerage": "Fidelity Investments",
+        "shares": 45,
+        "avgPriceUsd": 520
+      }
+    ],
+    "transactions": [
+      {
+        "id": "t4",
+        "type": "매수",
+        "date": "2024.01.15",
+        "shares": 45,
+        "priceUsd": 520,
+        "brokerage": "Fidelity"
+      }
+    ],
+    "marketStateLabel": "프리마켓"
+  },
+  {
+    "id": "s_msft",
+    "ticker": "MSFT",
+    "name": "마이크로소프트",
+    "category": "Software",
+    "market": "US",
+    "currency": "USD",
+    "currentPriceUsd": 486.5,
+    "changePct": -0.17,
+    "changeAmountUsd": 4.07,
+    "shares": 40,
+    "avgPriceUsd": 330,
+    "realizedGainUsd": 1200,
+    "holdings": [
+      {
+        "id": "h4",
+        "brokerage": "토스증권",
+        "shares": 40,
+        "avgPriceUsd": 330
+      }
+    ],
+    "transactions": [
+      {
+        "id": "t5",
+        "type": "매수",
+        "date": "2024.03.01",
+        "shares": 40,
+        "priceUsd": 330,
+        "brokerage": "토스증권"
+      }
+    ],
+    "marketStateLabel": "프리마켓"
+  },
+  {
+    "id": "s_samsung",
+    "ticker": "005930",
+    "name": "삼성전자",
+    "category": "국내 대형주",
+    "market": "KR",
+    "currency": "KRW",
+    "currentPriceUsd": 185.81,
+    "changePct": 0,
+    "changeAmountUsd": 0,
+    "shares": 250,
+    "avgPriceUsd": 49.08,
+    "realizedGainUsd": 650,
+    "holdings": [
+      {
+        "id": "h5",
+        "brokerage": "토스증권",
+        "shares": 250,
+        "avgPriceUsd": 49.08
+      }
+    ],
+    "transactions": [
+      {
+        "id": "t6",
+        "type": "매수",
+        "date": "2024.02.10",
+        "shares": 250,
+        "priceUsd": 49.08,
+        "brokerage": "토스증권"
+      }
+    ],
+    "marketStateLabel": "정규장"
+  },
+  {
+    "id": "s_tsla",
+    "ticker": "TSLA",
+    "name": "테슬라",
+    "category": "EV / Clean Energy",
+    "market": "US",
+    "currency": "USD",
+    "currentPriceUsd": 351.75,
+    "changePct": 0.8,
+    "changeAmountUsd": -13.91,
+    "shares": 35,
+    "avgPriceUsd": 190,
+    "realizedGainUsd": -400,
+    "holdings": [
+      {
+        "id": "h6",
+        "brokerage": "카카오페이증권",
+        "shares": 35,
+        "avgPriceUsd": 190
+      }
+    ],
+    "transactions": [
+      {
+        "id": "t7",
+        "type": "매수",
+        "date": "2024.04.05",
+        "shares": 35,
+        "priceUsd": 190,
+        "brokerage": "카카오페이"
+      }
+    ],
+    "marketStateLabel": "프리마켓"
+  },
+  {
+    "id": "s_o",
+    "ticker": "O",
+    "name": "리얼티 인컴",
+    "category": "Real Estate (월배당)",
+    "market": "US",
+    "currency": "USD",
+    "currentPriceUsd": 63.17,
+    "changePct": 0.91,
+    "changeAmountUsd": 0.57,
+    "shares": 120,
+    "avgPriceUsd": 52,
+    "realizedGainUsd": 260,
+    "holdings": [
+      {
+        "id": "h7",
+        "brokerage": "카카오페이증권",
+        "shares": 120,
+        "avgPriceUsd": 52
+      }
+    ],
+    "transactions": [
+      {
+        "id": "t8",
+        "type": "배당",
+        "date": "2024.05.15",
+        "shares": 120,
+        "priceUsd": 0.256,
+        "brokerage": "카카오페이"
+      }
+    ],
+    "marketStateLabel": "장마감"
+  }
+]

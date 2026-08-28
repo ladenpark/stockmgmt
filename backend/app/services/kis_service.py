@@ -146,13 +146,18 @@ class KISService:
                 if res.status_code == 200 and data.get("rt_cd") == "0":
                     output = data.get("output", {})
                     current_price = float(output.get("last", 0))
-                    change_amount = float(output.get("diff", 0))
+                    raw_change_amount = float(output.get("diff", 0))
                     change_pct = float(output.get("rate", 0))
+                    # 해외 단건 시세의 diff는 절댓값이므로 등락률 부호를 적용한다.
+                    # 이 값으로 계산한 전일 종가를 정규장 기준값으로 사용한다.
+                    change_amount = -abs(raw_change_amount) if change_pct < 0 else abs(raw_change_amount)
+                    previous_close = current_price - change_amount
 
                     return {
                         "price": current_price,
                         "change_pct": change_pct,
                         "change_amount": change_amount,
+                        "previous_close": previous_close,
                         "name": ticker.upper(),
                         "market": "US",
                         "currency": "USD",
